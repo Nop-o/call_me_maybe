@@ -1,5 +1,4 @@
 PYTHON = python3
-VENV = call_me_maybe_venv
 
 .SILENT:
 
@@ -14,35 +13,30 @@ help:
 	@echo "  make help					- Show this help message"
 
 
-install: 
-	$(PYTHON) -m venv $(VENV)
-	$(VENV)/bin/pip install --upgrade pip
-	$(VENV)/bin/pip install -r requirements.txt
-	@echo ""
-	@echo "source $(VENV)/bin/activate"
+install:
+	uv sync
 
 run:
-	$(VENV)/bin/python -m src.call_me_maybe $(INPUT)
+	uv run $(PYTHON) -m src
 
 debug:
-	$(VENV)/bin/python -m pdb -m src.call_me_maybe $(INPUT)
+	uv run $(PYTHON) -m src -m pdb -m src
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type d -name .mypy_cache -exec rm -rf {} +
-	find . -type d -name $(VENV) -exec rm -rf {} \;
 
 lint:
-	$(PYTHON) -m flake8 src --exclude=$(VENV)
-	mypy src --warn-unused-ignores \
+	uv run flake8 src --exclude=.venv
+	uv run src --warn-unused-ignores \
 	        --warn-return-any \
 	        --ignore-missing-imports \
 	        --disallow-untyped-defs \
 	        --check-untyped-defs
 
 lint-strict:
-	$(PYTHON) -m flake8 src --exclude=$(VENV)
-	mypy	--strict src
+	uv run flake8 src --exclude=$(VENV)
+	uv run mypy	--strict src
 
 .PHONY: install run debug clean lint lint-strict help
 

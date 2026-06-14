@@ -2,7 +2,7 @@
 __pycache__/
 *.py[codz]
 *$py.class
-
+call_me_maybe_venv
 # C extensions
 *.so
 

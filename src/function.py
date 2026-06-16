@@ -3,30 +3,15 @@ from pydantic import BaseModel, Field, model_validator
 
 class FunctionDetails(BaseModel):
 
-    name: str = Field(min_length=4, max_length=40)
-    description: str = Field(min_length=4, max_length=200)
+    name: str = Field(min_length=1, max_length=40)
+    description: str = Field(min_length=1, max_length=200)
     parameters: dict[str, dict[str, str]]
     returns: dict[str, str]
 
     @model_validator(mode='after')
     def _verify_function_name(self) -> "FunctionDetails":
-        if not self.name.startswith("fn_"):
-            raise ValueError("Name error: the function doesn't start "
-                             f"with 'fn' {self.name[0:2]}")
         if " " in self.name:
             raise ValueError("Name error: the function has a ' ' (space)")
-        return self
-
-    @model_validator(mode='after')
-    def _verify_description(self) -> 'FunctionDetails':
-        if not self.description.endswith("."):
-            raise ValueError("Description error: the description doesn't "
-                             "end with '.'")
-
-        if not self.description[0].isupper():
-            raise ValueError("Description error: the description doesn't start"
-                             f" with a capital letter {self.description[0]}")
-
         return self
 
     @model_validator(mode='after')

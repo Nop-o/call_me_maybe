@@ -11,7 +11,9 @@ def main() -> None:
         parser.create_prompts()
 
         manager = LlmManager(parser.prompts, parser.functions)
-        encoded_functions = manager.encode_functions()
+
+        json_file = manager.get_json()
+        manager.create_json_file(json_file)
 
     except (FileNotFoundError, ImportError) as e:
         print(e)
@@ -19,10 +21,13 @@ def main() -> None:
     except ValidationError as e:
         print(e.errors()[0]["msg"].replace("Value error, ", ""))
         return
+    except OSError as e:
+        print(e)
 
 
 if __name__ == "__main__":
     main()
+
     #try:
     #    main()
     #except Exception as e:

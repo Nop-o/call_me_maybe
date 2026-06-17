@@ -1,4 +1,5 @@
 from .parsing import Parsing
+from .manager import LlmManager
 
 
 def main() -> None:
@@ -8,9 +9,10 @@ def main() -> None:
                          "data/function_calling_tests.json")
         parser.create_functions()
         parser.create_prompts()
-        print(parser.functions)
-        print()
-        print(parser.prompts)
+
+        manager = LlmManager(parser.prompts, parser.functions)
+        encoded_functions = manager.encode_functions()
+
     except (FileNotFoundError, ImportError) as e:
         print(e)
         return
@@ -20,7 +22,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        print(e)
+    main()
+    #try:
+    #    main()
+    #except Exception as e:
+    #    print(e)

@@ -13,7 +13,7 @@ def main() -> None:
         manager = LlmManager(parser.prompts, parser.functions)
 
         json_file = manager.get_json()
-        manager.create_json_file(json_file)
+        # manager.create_json_file(json_file)
 
     except (FileNotFoundError, ImportError) as e:
         print(e)

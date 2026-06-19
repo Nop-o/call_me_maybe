@@ -7,26 +7,28 @@ import numpy as np
 class LlmManager:
     def __init__(self, prompts: list[Prompt],
                  functions: list[FunctionDetails]) -> None:
-        self.functions: list[FunctionDetails] = functions
         self.model: Small_LLM_Model = Small_LLM_Model()
-
-        self.encoded_prompts: list[list[int]] = self._get_encode_prompts(
-            prompts)
-        self.encoded_function_prompts: list[list[int]] = self._get_encoded_functions()
-        self.global_prompt: list[int] = self._get_encoded_global_prompt()
-
         self.constrained_logits: list[float] = self._init_logits()
+        self.prompts: list[Prompt] = prompts
+        self.stop_characteres: set[int] = self._get_stop_char()
+
+        self.functions: list[FunctionDetails] = functions
+        self.functions_names: set[str] = self._get_functions_names()
+        self.encoded_function_names: list[
+            int] = self._get_encoded_function_names()
+        self.encoded_function_prompts: list[list[
+            int]] = self._get_encoded_functions()
+
+        self.global_prompt: list[int] = self._get_encoded_global_prompt()
 
     def get_json(self) -> list[dict[str, str | dict[str, str]]]:
         return_value: list[dict[str, str | dict[str, str]]] = {}
 
-        for prompt in self.encoded_prompts:
+        for prompt in self.prompts:
             answer: dict[str, str | dict[str, str]] = {}
 
-            encoded_prompt: list[int] = (
-                self.global_prompt + self.encoded_function_prompts + prompt)
-
-            answer["name"] = self.get_function_name(encoded_prompt)
+            answer["prompt"] = prompt.prompt
+            answer["name"] = self.get_function_name(prompt.prompt)
             answer["parameters"] = self.get_parameters(
                 self.find_function_from_name(answer["name"]))
 
@@ -34,14 +36,18 @@ class LlmManager:
 
         return return_value
 
-    def get_function_name(self, encoded_prompt: list[int]) -> str:
+    def get_function_name(self, prompt: str) -> str:
         function_name: str = ""
-        end_token: int = self.model.encode("<|endoftext|>")
+        encoded_prompt: list[int] = (
+                self.global_prompt
+                + self.encoded_function_prompts
+                + self.encode_prompt(prompt))
+        print(self.model.decode(encoded_prompt))
 
-        self.adapt_logits(encoded_function_names)
+        self.adapt_logits(self.encoded_function_names)
         new_token = None
 
-        while new_token != end_token:
+        while new_token not in self.stop_characteres:
             logits: list[float] = self.model.get_logits_from_input_ids(
                 encoded_prompt)
             logits += self.constrained_logits
@@ -50,15 +56,14 @@ class LlmManager:
             encoded_prompt.append(int(new_token))
 
             function_name += self.decode(new_token)
-            print(f"function: {function_name}")
+            print(f"function: {function_name}",  flush=True)
+        print("FOUND")
 
         return function_name
 
-    def get_parameters(self, function: FunctionDetails | None) -> list[str]:
-        if function is None:
-            return # ERROR
+    def get_parameters(self, function: FunctionDetails) -> list[str]:
 
-        parameters: list[str]  = []
+        parameters: list[str] = []
         parameter_count: int = len(function.parameters.values())
         parameters_type: list[str] = [
             parameter['type'] for parameter in function.parameters.values()
@@ -124,30 +129,26 @@ class LlmManager:
        file_name="data/output/function_calling_results.json") -> None:
         with open(file_name, 'x') as file:
             file.write(data)
-    
+
     def find_function_from_name(
-        self, function_name: str) -> FunctionDetails | None:
-        """Find a FUnctionDetails with it's name"""
+       self, function_name: str) -> FunctionDetails | None:
+        """Find a FunctionDetails with it's name"""
         for function in self.functions:
             if function.name == function_name:
                 return function
         return None
-    
+
     def adapt_logits(self, usable_token: list[int]) -> None:
         """Turn the function tokens logits to 0 instead of -inf"""
+        print(usable_token)
+        usable_token += self.stop_characteres
+        print(usable_token)
         for token in usable_token:
             self.constrained_logits[token] = 0.0
 
     def is_str_a_function_name(self, word: str) -> bool:
         """Return True if the word is a valid function name"""
-        if not word:
-            return False
-
-        for function in self.functions:
-            if function.name == word:
-                return True
-
-        return False
+        return word in self.functions_names
 
     def decode_parameters(
        self, encoded_parameters: list[list[int]]) -> list[str]:
@@ -161,7 +162,7 @@ class LlmManager:
     def decode(self, to_decode: list[int]) -> str:
         return self.model.decode(to_decode)
 
-    def get_encoded_function_names(self) -> list[int]:
+    def _get_encoded_function_names(self) -> list[int]:
         """Encode the functions name"""
         encoded_function_names: list[int] = []
 
@@ -170,50 +171,66 @@ class LlmManager:
                 self.model.encode(function.name)[0].tolist()
             )
         return encoded_function_names
-            
-    def _init_logits(self) -> list[float]:
 
+    def _init_logits(self) -> list[float]:
         """Init every logit to -inf"""
         logit_count = len(self.model.get_logits_from_input_ids(
             [self.model._tokenizer.eos_token_id]))
-        return [-float('inf')] * logit_count
+        return np.full(logit_count, -float('inf'))
 
-    def _get_encode_prompts(self, prompts: list[Prompt]) -> list[list[int]]:
-        """Encode all prompts"""
-        encoded_prompts: list[list[int]] = []
-
-        for prompt in prompts:
-            encoded_prompts.append(self.model.encode(
-                "<|im_start|>user\n"
-                f"{prompt.prompt}<|im_end|>\n"
-                "<|im_start|>assistant\n"
+    def encode_prompt(self, prompt: str) -> list[int]:
+        """Encode a prompt"""
+        return (self.model.encode(
+                '<|im_start|>user\n'
+                f'{prompt}<|im_end|>\n'
+                '<|im_start|>assistant\n'
+                'name: '
                 )[0].tolist())
 
-        return self.get_encoded_function_names()
+    def _get_functions_names(self) -> set[str]:
+        """Create a set with all the functions names"""
+        functions_names: set[str] = set()
+
+        for function in self.functions:
+            functions_names.add(function.name)
+
+        return functions_names
 
     def _get_encoded_functions(self) -> list[int]:
         """Encode all functions"""
-        encoded_function_prompts: list[int] =self.model.encode((
-            "The possible function name are: "
-            f"{', '.join(function.name for function in self.functions)}.\n")
-            )[0].tolist()
+        encoded_function_prompts: list[int] = []
+        # (
+        #     self.model.encode("The possible function name are: ")[0].tolist())
+        # encoded_function_prompts.extend(self.encoded_function_names)
 
         for function in self.functions:
             encoded_function: list[int] = self.model.encode(
-                f"Function name: {function.name}\n"
-                f"Function description: {function.description}\n"
+                f"name: {function.name}.\n"
+                f"description: {function.description}\n"
                 )[0].tolist()
             encoded_function_prompts.extend(encoded_function)
         encoded_function_prompts.extend(self.model.encode(
             "<|im_end|>")[0].tolist())
+        print(encoded_function_prompts)
         return encoded_function_prompts
+
+    # def _get_encoded_function_names(self) -> list[int]:
+    #     return (self.model.encode(f"{', '.join(function.name for function
+    #             in self.functions)}.\n")[0].tolist())
 
     def _get_encoded_global_prompt(self) -> list[int]:
         """Get the encoded golbal prompt"""
         return self.model.encode(
             "<|im_start|>system\n"
-            "You are a function-calling assistant.\n"
-            "First you will get a list of available functions and after you will receive a prompt.\n"
-            "You must select the appropriate function name and after the parameters.\n"
-            "Do not explain yourself. Only output the function call.\n"
             )[0].tolist()
+
+    def _get_stop_char(self) -> set[int]:
+        list_stop_char: list[str] = [
+            ",", ".", '"', " ", "\n", "<|endoftext|>"
+        ]
+
+        set_stop_char: set[int] = {
+            token_id for stop_char in list_stop_char
+            for token_id in self.model.encode(stop_char)[0].tolist()
+        }
+        return set_stop_char

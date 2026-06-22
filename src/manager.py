@@ -2,6 +2,7 @@ from .prompt import Prompt
 from .function import FunctionDetails
 from llm_sdk.llm_sdk import Small_LLM_Model
 import numpy as np
+from typing import Any
 
 
 class LlmManager:
@@ -9,17 +10,13 @@ class LlmManager:
                  functions: list[FunctionDetails]) -> None:
         self.model: Small_LLM_Model = Small_LLM_Model()
         self.constrained_logits: list[float] = self._init_logits()
-        self.prompts: list[Prompt] = prompts
         self.stop_characteres: set[int] = self._get_stop_char()
+        self.prompts: list[Prompt] = prompts
 
         self.functions: list[FunctionDetails] = functions
         self.functions_names: set[str] = self._get_functions_names()
         self.encoded_function_names: list[
             int] = self._get_encoded_function_names()
-        self.encoded_function_prompts: list[list[
-            int]] = self._get_encoded_functions()
-
-        self.global_prompt: list[int] = self._get_encoded_global_prompt()
 
     def get_json(self) -> list[dict[str, str | dict[str, str]]]:
         return_value: list[dict[str, str | dict[str, str]]] = {}
@@ -27,102 +24,125 @@ class LlmManager:
         for prompt in self.prompts:
             answer: dict[str, str | dict[str, str]] = {}
 
-            answer["prompt"] = prompt.prompt
-            answer["name"] = self.get_function_name(prompt.prompt)
-            answer["parameters"] = self.get_parameters(
-                self.find_function_from_name(answer["name"]))
+            answer["prompt"]: str = prompt.prompt
+            answer["name"]: str = self.get_function_name(prompt.prompt)
+            print(answer["name"])
+            answer["parameters"]: dict[str, str] = self.get_parameters(
+                self.find_function_from_name(answer["name"]), prompt.prompt)
+            print(answer["parameters"])
 
-            return_value.append(answer)
+            return_value.update(answer)
+            print(return_value)
 
         return return_value
 
     def get_function_name(self, prompt: str) -> str:
-        function_name: str = ""
-        encoded_prompt: list[int] = (
-                self.global_prompt
-                + self.encoded_function_prompts
-                + self.encode_prompt(prompt))
-        print(self.model.decode(encoded_prompt))
+        encoded_prompt: list[int] = self.encode_prompt(
+            self.get_function_information(), prompt, 'name: "')
+        constrained_logits: list[float] = self.adapt_logits(
+            self.encoded_function_names)
 
-        self.adapt_logits(self.encoded_function_names)
-        new_token = None
+        return self.get_llm_answer(constrained_logits, encoded_prompt)
 
-        while new_token not in self.stop_characteres:
-            logits: list[float] = self.model.get_logits_from_input_ids(
-                encoded_prompt)
-            logits += self.constrained_logits
-
-            new_token = np.argmax(logits)
-            encoded_prompt.append(int(new_token))
-
-            function_name += self.decode(new_token)
-            print(f"function: {function_name}",  flush=True)
-        print("FOUND")
-
-        return function_name
-
-    def get_parameters(self, function: FunctionDetails) -> list[str]:
-
-        parameters: list[str] = []
+    def get_parameters(
+       self, function: FunctionDetails, prompt: str) -> dict[dict[str, Any]]:
+        """Get the parameters of a function with a llm"""
+        parameters: dict[str, dict[str, str]] = {"parameters": {}}
         parameter_count: int = len(function.parameters.values())
-        parameters_type: list[str] = [
-            parameter['type'] for parameter in function.parameters.values()
+        parameters_type: list[dict[str, str]] = [
+            {name: parameter['type']} for name, parameter
+            in function.parameters.items()
         ]
-        encoded_prompt = self.model.encode(
-            f"This function has {parameter_count} parameters.\n")
 
         for i in range(parameter_count):
-            parameter: str = ""
+            (parameter_name, parameter_type), = parameters_type[i].items()
+            parameters["parameters"].update(self.get_parameter(
+                parameters, function, parameter_name, parameter_type, prompt))
 
-            while (1):
-                encoded_prompt += self.get_encoded_prompt_for_one_parameter(
-                    parameters_type[i])
-                logits = self.model.get_logits_from_input_ids(encoded_prompt)
-                new_token = np.argmax(logits)
-                encoded_prompt += new_token
-
-                decoded_token += self.decode(new_token)
-                if decoded_token == ',':
-                    if parameters_type[i] == "string":
-                        encoded_prompt += self.model.encode('"')
-                        parameter += '"'
-                    elif ((parameters_type[i] ==  "number" or
-                          parameters_type[i] == "float") and
-                          '.' not in parameter):
-                        parameter += '.0'
-                    break
-
-                parameter += decoded_token
-            parameters.append(parameter)
-        
         return parameters
 
-    def get_encoded_prompt_for_one_parameter(
-       self, parameter: str) -> list[int]:
-        if parameter == "number":
-            return self.model.encode(
-                "The next parameter is a number: "
-            )[0].tolist()
+    def get_parameter(
+       self, parameters: dict[str, dict[str, str]], function: FunctionDetails,
+       parameter_name: str, parameter_type: str, prompt: str
+       ) -> dict[str, Any]:
+        """Get the parameter based on his type"""
+        encoded_prompt: str = self.encode_prompt(
+            f"name: {function.name}.\n"
+            f"description: {function.description}\n",
+            f"{prompt}\n",
+            "parameters: {"
+            f"{', '.join(f'{key}: {value}' for key, value
+                         in parameters['parameters'].items())
+                + ', ' if parameters['parameters'] else ''}{parameter_name}: "
+            )
 
-        elif parameter == "float":
-            return self.model.encode(
-                "The next parameter is a float: "
-            )[0].tolist()
+        if parameter_type in ["number", "float"]:
+            return {parameter_name: self._get_number_parameter(encoded_prompt)}
 
-        elif parameter == "integer":
-            return self.model.encode(
-                "The next parameter is an integer: "
-            )[0].tolist()
+        elif parameter_type == "integer":
+            return {parameter_name: int(self._get_number_parameter(
+                encoded_prompt))}
 
-        elif parameter == "string":
-            return self.model.encode(
-                'The next parameter is a string: "'
-            )[0].tolist()
+        elif parameter_type == "string":
+            return {parameter_name: self._get_string_parameter(encoded_prompt)}
 
-        else:
-            return self.model.encode(
-                'The next parameter is a boolean: '
-            )[0].tolist()
+        return {parameter_name: self._get_boolean_parameter(encoded_prompt)}
+
+    def _get_number_parameter(self, encoded_prompt: str) -> dict[str, str]:
+        """Get a number parameter"""
+        logits: list[float] = self.adapt_logits(self.encode_list(
+                ["9", "8", "7", "6", "5", "4", "3", "2", "1", "0", ".", "-"]))
+
+        return self.get_llm_answer(logits, encoded_prompt)
+
+    def _get_boolean_parameter(self, encoded_prompt: str) -> dict[str, str]:
+        """Get a boolean parameter"""
+        logits: list[
+            float] = self.adapt_logits(self.encode("True") +
+                                       self.encode("False"))
+
+        return self.get_llm_answer(logits, encoded_prompt)
+
+    def _get_string_parameter(self, encoded_prompt: str) -> dict[str, str]:
+        """Get a string parameter"""
+        return self.get_llm_answer([], encoded_prompt)
+
+    def get_llm_answer(self, logits: list[float], prompt: list[int]) -> str:
+        print(self.decode(prompt))
+        llm_answer: list[int] = []
+        new_token = None
+
+        while 1:
+            logits += self.model.get_logits_from_input_ids(
+                prompt)
+
+            new_token = int(np.argmax(logits))
+            prompt.append(new_token)
+
+            if self.is_there_a_stop_charactere(new_token):
+                break
+            llm_answer.append(new_token)
+            print(self.decode(llm_answer))
+
+        return self.decode(llm_answer)
+
+    def encode_list(self, to_encode: list[str]) -> list[int]:
+        encoded_list: list[int] = []
+
+        for word in to_encode:
+            encoded_list.append(int(self.model.encode(word)))
+
+        return encoded_list
+
+    def is_there_a_stop_charactere(self, token: int) -> bool:
+        """Look if there is a stop charactere in a token"""
+        decoded_token: str = self.decode(token)
+        decoded_stop_characteres: str = self.decode(self.stop_characteres)
+
+        for stop_charactere in decoded_stop_characteres:
+            if stop_charactere in decoded_token:
+                return True
+        return False
 
     def create_json_file(
        self, data: dict[str, str | dict[str, str]],
@@ -138,13 +158,16 @@ class LlmManager:
                 return function
         return None
 
-    def adapt_logits(self, usable_token: list[int]) -> None:
+    def adapt_logits(self, usable_token: list[int]) -> list[float]:
         """Turn the function tokens logits to 0 instead of -inf"""
-        print(usable_token)
-        usable_token += self.stop_characteres
-        print(usable_token)
+        new_logits: list[float] = self.constrained_logits.copy()
+
         for token in usable_token:
-            self.constrained_logits[token] = 0.0
+            new_logits[token] = 0.0
+        for token in self.stop_characteres:
+            new_logits[token] = 0.0
+
+        return new_logits
 
     def is_str_a_function_name(self, word: str) -> bool:
         """Return True if the word is a valid function name"""
@@ -162,30 +185,22 @@ class LlmManager:
     def decode(self, to_decode: list[int]) -> str:
         return self.model.decode(to_decode)
 
-    def _get_encoded_function_names(self) -> list[int]:
-        """Encode the functions name"""
-        encoded_function_names: list[int] = []
+    def encode(self, to_encode: str) -> list[int]:
+        return self.model.encode(to_encode)
 
-        for function in self.functions:
-            encoded_function_names.extend(
-                self.model.encode(function.name)[0].tolist()
-            )
-        return encoded_function_names
-
-    def _init_logits(self) -> list[float]:
-        """Init every logit to -inf"""
-        logit_count = len(self.model.get_logits_from_input_ids(
-            [self.model._tokenizer.eos_token_id]))
-        return np.full(logit_count, -float('inf'))
-
-    def encode_prompt(self, prompt: str) -> list[int]:
-        """Encode a prompt"""
-        return (self.model.encode(
-                '<|im_start|>user\n'
-                f'{prompt}<|im_end|>\n'
-                '<|im_start|>assistant\n'
-                'name: '
-                )[0].tolist())
+    def encode_prompt(
+       self, system_tag: str, user_tag: str, assistant_tag: str = "") -> list[int]:
+        """
+        Encode a prompt with a tag system to help the llm better understand
+        the received informations
+        """
+        return self.encode(
+            '<|im_start|>system\n'
+            f'{system_tag}<|im_end|>\n'
+            '<|im_start|>user\n'
+            f'{user_tag}<|im_end|>\n'
+            '<|im_start|>assistant\n'
+            f'{assistant_tag}')[0].tolist()
 
     def _get_functions_names(self) -> set[str]:
         """Create a set with all the functions names"""
@@ -196,41 +211,40 @@ class LlmManager:
 
         return functions_names
 
-    def _get_encoded_functions(self) -> list[int]:
+    def get_function_information(self) -> str:
         """Encode all functions"""
-        encoded_function_prompts: list[int] = []
-        # (
-        #     self.model.encode("The possible function name are: ")[0].tolist())
-        # encoded_function_prompts.extend(self.encoded_function_names)
+        functions_informations: str = ""
 
         for function in self.functions:
-            encoded_function: list[int] = self.model.encode(
+            functions_informations += (
                 f"name: {function.name}.\n"
                 f"description: {function.description}\n"
-                )[0].tolist()
-            encoded_function_prompts.extend(encoded_function)
-        encoded_function_prompts.extend(self.model.encode(
-            "<|im_end|>")[0].tolist())
-        print(encoded_function_prompts)
-        return encoded_function_prompts
+                )
+        return functions_informations.strip()
 
-    # def _get_encoded_function_names(self) -> list[int]:
-    #     return (self.model.encode(f"{', '.join(function.name for function
-    #             in self.functions)}.\n")[0].tolist())
-
-    def _get_encoded_global_prompt(self) -> list[int]:
-        """Get the encoded golbal prompt"""
-        return self.model.encode(
-            "<|im_start|>system\n"
-            )[0].tolist()
-
-    def _get_stop_char(self) -> set[int]:
+    def _get_stop_char(self) -> list[int]:
         list_stop_char: list[str] = [
             ",", ".", '"', " ", "\n", "<|endoftext|>"
         ]
 
-        set_stop_char: set[int] = {
+        set_stop_char: list[int] = [
             token_id for stop_char in list_stop_char
-            for token_id in self.model.encode(stop_char)[0].tolist()
-        }
+            for token_id in self.encode(stop_char)[0].tolist()
+        ]
         return set_stop_char
+
+    def _get_encoded_function_names(self) -> list[int]:
+        """Encode the functions name"""
+        encoded_function_names: list[int] = []
+
+        for function in self.functions:
+            encoded_function_names.extend(
+                self.encode(function.name)[0].tolist()
+            )
+        return encoded_function_names
+
+    def _init_logits(self) -> list[float]:
+        """Init every logit to -inf"""
+        logit_count = len(self.model.get_logits_from_input_ids(
+            [self.model._tokenizer.eos_token_id]))
+        return np.full(logit_count, -float('inf'))

@@ -1,4 +1,3 @@
-from .prompt import Prompt
 from .function import FunctionDetails
 from llm_sdk.llm_sdk import Small_LLM_Model
 import numpy as np
@@ -8,27 +7,48 @@ from typing import Any
 class LlmManager:
     def __init__(self, functions: list[FunctionDetails]) -> None:
         self.model: Small_LLM_Model = Small_LLM_Model()
-        self.constrained_logits: list[float] = self._init_logits()
-        self.stop_characteres: set[int] = self._get_stop_char()
+        self.constrained_logits: np.ndarray = self._init_logits()
+        self.stop_characteres: list[int] = self._get_stop_char()
 
         self.functions: list[FunctionDetails] = functions
-        self.functions_names: set[str] = self._get_functions_names()
         self.encoded_function_names: list[
             int] = self._get_encoded_function_names()
+
+    def get_llm_answer(self, logits: np.ndarray, prompt: list[int]) -> str:
+        """
+        Get a string from a prompt and constrained logits created by the llm
+        """
+        llm_answer: list[int] = []
+        print(self.decode(prompt))
+        while 1:
+            current_logits: np.ndarray = (
+                logits + self.model.get_logits_from_input_ids(prompt))
+
+            new_token = int(np.argmax(current_logits))
+            prompt.append(new_token)
+
+            if self.is_there_a_stop_charactere(new_token):
+                break
+            llm_answer.append(new_token)
+
+        return self.decode(llm_answer)
 
     def get_function_name(self, prompt: str) -> str:
         """Get the name of a function with a llm"""
         encoded_prompt: list[int] = self.encode_prompt(
             self.get_function_information(), prompt, 'name: "')
-        constrained_logits: list[float] = self.adapt_logits(
+        constrained_logits: np.ndarray = self.adapt_logits(
             self.encoded_function_names)
 
         return self.get_llm_answer(constrained_logits, encoded_prompt)
 
     def get_parameters(
-       self, function: FunctionDetails, prompt: str) -> dict[dict[str, Any]]:
+       self, function: FunctionDetails | None, prompt: str) -> dict[str, Any]:
         """Get the parameters of a function with a llm"""
-        parameters: dict[str, dict[str, str]] = {}
+        if function is None:
+            return {}
+
+        parameters: dict[str, Any] = {}
         parameter_count: int = len(function.parameters.values())
         parameters_type: list[dict[str, str]] = [
             {name: parameter['type']} for name, parameter
@@ -43,11 +63,11 @@ class LlmManager:
         return parameters
 
     def get_parameter(
-       self, parameters: dict[str, dict[str, str]], function: FunctionDetails,
+       self, parameters: dict[str, dict[str, Any]], function: FunctionDetails,
        parameter_name: str, parameter_type: str, prompt: str
        ) -> dict[str, Any]:
         """Get the parameter based on his type"""
-        encoded_prompt: str = self.encode_prompt(
+        encoded_prompt: list[int] = self.encode_prompt(
             f'name: "{function.name}"\n'
             f'description: "{function.description}"',
             f'"{prompt}"',
@@ -58,7 +78,8 @@ class LlmManager:
             )
 
         if parameter_type in ["number", "float"]:
-            return {parameter_name: self._get_number_parameter(encoded_prompt)}
+            return {parameter_name: self._get_number_parameter(
+                encoded_prompt, ".")}
 
         elif parameter_type == "integer":
             return {parameter_name: int(self._get_number_parameter(
@@ -67,56 +88,42 @@ class LlmManager:
         elif parameter_type == "string":
             return {parameter_name: self._get_string_parameter(encoded_prompt)}
 
-        return {parameter_name: self._get_boolean_parameter(encoded_prompt)}
+        return {parameter_name: bool(
+            self._get_boolean_parameter(encoded_prompt))}
 
-    def _get_number_parameter(self, encoded_prompt: str) -> dict[str, str]:
+    def _get_number_parameter(
+       self, encoded_prompt: list[int],
+       additional_characteres: str = "") -> int | float:
         """Get a number parameter"""
-        logits: list[float] = self.adapt_logits(self.encode_list(
-                ["9", "8", "7", "6", "5", "4", "3", "2", "1", "0", ".", "-"]))
+        logits: np.ndarray = self.adapt_logits(self.encode_list(
+                ["9", "8", "7", "6", "5", "4", "3", "2", "1", "0",
+                 "-", additional_characteres]))
 
-        return self.get_llm_answer(logits, encoded_prompt)
+        return float(self.get_llm_answer(logits, encoded_prompt))
 
-    def _get_boolean_parameter(self, encoded_prompt: str) -> dict[str, str]:
+    def _get_boolean_parameter(self, encoded_prompt: list[int]) -> str:
         """Get a boolean parameter"""
-        logits: list[
-            float] = self.adapt_logits(self.encode("True") +
-                                       self.encode("False"))
+        logits: np.ndarray = self.adapt_logits(self.encode("True") +
+                                               self.encode("False"))
 
         return self.get_llm_answer(logits, encoded_prompt)
 
-    def _get_string_parameter(self, encoded_prompt: str) -> dict[str, str]:
+    def _get_string_parameter(self, encoded_prompt: list[int]) -> str:
         """Get a string parameter"""
-        return self.get_llm_answer([], encoded_prompt)
-
-    def get_llm_answer(self, logits: list[float], prompt: list[int]) -> str:
-        """Get a string from a prompt and constrained logits created by the llm"""
-        llm_answer: list[int] = []
-        print(self.decode(prompt))
-        while 1:
-            current_logits: list[
-                float] = logits + self.model.get_logits_from_input_ids(prompt)
-
-            new_token = int(np.argmax(current_logits))
-            prompt.append(new_token)
-
-            if self.is_there_a_stop_charactere(new_token):
-                break
-            llm_answer.append(new_token)
-
-        return self.decode(llm_answer)
+        return self.get_llm_answer(np.array([]), encoded_prompt)
 
     def encode_list(self, to_encode: list[str]) -> list[int]:
         """Encode a list of str into one list of token"""
         encoded_list: list[int] = []
 
         for word in to_encode:
-            encoded_list.append(int(self.model.encode(word)))
+            encoded_list.extend(self.encode(word))
 
         return encoded_list
 
     def is_there_a_stop_charactere(self, token: int) -> bool:
         """Look if there is a stop charactere in a token"""
-        decoded_token: str = self.decode(token)
+        decoded_token: str = self.decode([token])
         decoded_stop_characteres: str = self.decode(self.stop_characteres)
 
         for stop_charactere in decoded_stop_characteres:
@@ -132,9 +139,9 @@ class LlmManager:
                 return function
         return None
 
-    def adapt_logits(self, usable_token: list[int]) -> list[float]:
+    def adapt_logits(self, usable_token: list[int]) -> np.ndarray:
         """Turn the function tokens logits to 0 instead of -inf"""
-        new_logits: list[float] = self.constrained_logits.copy()
+        new_logits: np.ndarray = self.constrained_logits.copy()
 
         for token in usable_token:
             new_logits[token] = 0.0
@@ -143,21 +150,17 @@ class LlmManager:
 
         return new_logits
 
-    def is_str_a_function_name(self, word: str) -> bool:
-        """Return True if the word is a valid function name"""
-        return word in self.functions_names
-        return decoded_parameters
-
     def decode(self, to_decode: list[int]) -> str:
         """Call the decode function from the llm"""
         return self.model.decode(to_decode)
 
     def encode(self, to_encode: str) -> list[int]:
         """Call the encode function from the llm"""
-        return self.model.encode(to_encode)
+        return self.model.encode(to_encode)[0].tolist()
 
     def encode_prompt(
-       self, system_tag: str, user_tag: str, assistant_tag: str = "") -> list[int]:
+       self, system_tag: str, user_tag: str,
+       assistant_tag: str = "") -> list[int]:
         """
         Encode a prompt with a tag system to help the llm better understand
         the received informations
@@ -168,7 +171,7 @@ class LlmManager:
             '<|im_start|>user\n'
             f'{user_tag}<|im_end|>\n'
             '<|im_start|>assistant\n'
-            f'{assistant_tag}')[0].tolist()
+            f'{assistant_tag}')
 
     def _get_functions_names(self) -> set[str]:
         """Create a set with all the functions names"""
@@ -198,7 +201,7 @@ class LlmManager:
 
         set_stop_char: list[int] = [
             token_id for stop_char in list_stop_char
-            for token_id in self.encode(stop_char)[0].tolist()
+            for token_id in self.encode(stop_char)
         ]
         return set_stop_char
 
@@ -208,11 +211,11 @@ class LlmManager:
 
         for function in self.functions:
             encoded_function_names.extend(
-                self.encode(function.name)[0].tolist()
+                self.encode(function.name)
             )
         return encoded_function_names
 
-    def _init_logits(self) -> list[float]:
+    def _init_logits(self) -> np.ndarray:
         """Init every logit to -inf"""
         logit_count = len(self.model.get_logits_from_input_ids(
             [self.model._tokenizer.eos_token_id]))

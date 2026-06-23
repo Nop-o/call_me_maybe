@@ -2,6 +2,7 @@ from .prompt import Prompt
 from .function import FunctionDetails
 from llm_sdk.llm_sdk import Small_LLM_Model
 import numpy as np
+import json
 from typing import Any
 
 
@@ -19,21 +20,18 @@ class LlmManager:
             int] = self._get_encoded_function_names()
 
     def get_json(self) -> list[dict[str, str | dict[str, str]]]:
-        return_value: list[dict[str, str | dict[str, str]]] = {}
+        return_value: list[dict[str, str | dict[str, str]]] = []
 
         for prompt in self.prompts:
             answer: dict[str, str | dict[str, str]] = {}
 
             answer["prompt"]: str = prompt.prompt
             answer["name"]: str = self.get_function_name(prompt.prompt)
-            print(answer["name"])
             answer["parameters"]: dict[str, str] = self.get_parameters(
                 self.find_function_from_name(answer["name"]), prompt.prompt)
-            print(answer["parameters"])
 
-            return_value.update(answer)
-            print(return_value)
-
+            return_value.append(answer)
+        print(return_value)
         return return_value
 
     def get_function_name(self, prompt: str) -> str:
@@ -47,7 +45,7 @@ class LlmManager:
     def get_parameters(
        self, function: FunctionDetails, prompt: str) -> dict[dict[str, Any]]:
         """Get the parameters of a function with a llm"""
-        parameters: dict[str, dict[str, str]] = {"parameters": {}}
+        parameters: dict[str, dict[str, str]] = {}
         parameter_count: int = len(function.parameters.values())
         parameters_type: list[dict[str, str]] = [
             {name: parameter['type']} for name, parameter
@@ -56,7 +54,7 @@ class LlmManager:
 
         for i in range(parameter_count):
             (parameter_name, parameter_type), = parameters_type[i].items()
-            parameters["parameters"].update(self.get_parameter(
+            parameters.update(self.get_parameter(
                 parameters, function, parameter_name, parameter_type, prompt))
 
         return parameters
@@ -72,8 +70,8 @@ class LlmManager:
             f"{prompt}\n",
             "parameters: {"
             f"{', '.join(f'{key}: {value}' for key, value
-                         in parameters['parameters'].items())
-                + ', ' if parameters['parameters'] else ''}{parameter_name}: "
+                         in parameters.items())
+                + ', ' if parameters else ''}{parameter_name}: "
             )
 
         if parameter_type in ["number", "float"]:
@@ -108,21 +106,19 @@ class LlmManager:
         return self.get_llm_answer([], encoded_prompt)
 
     def get_llm_answer(self, logits: list[float], prompt: list[int]) -> str:
-        print(self.decode(prompt))
         llm_answer: list[int] = []
-        new_token = None
 
         while 1:
-            logits += self.model.get_logits_from_input_ids(
-                prompt)
+            current_logits: list[
+                float] = logits + self.model.get_logits_from_input_ids(prompt)
 
-            new_token = int(np.argmax(logits))
+            new_token = int(np.argmax(current_logits))
             prompt.append(new_token)
 
             if self.is_there_a_stop_charactere(new_token):
                 break
             llm_answer.append(new_token)
-            print(self.decode(llm_answer))
+        print(self.decode(llm_answer))
 
         return self.decode(llm_answer)
 
@@ -145,10 +141,10 @@ class LlmManager:
         return False
 
     def create_json_file(
-       self, data: dict[str, str | dict[str, str]],
-       file_name="data/output/function_calling_results.json") -> None:
-        with open(file_name, 'x') as file:
-            file.write(data)
+        self, data: dict[str, str | dict[str, str]],
+        file_name="data/output/function_calling_results.json") -> None:
+            with open(file_name, 'x') as file:
+                file.write(json.dumps(data, indent=4))
 
     def find_function_from_name(
        self, function_name: str) -> FunctionDetails | None:

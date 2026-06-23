@@ -31,18 +31,21 @@ clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type d -name .mypy_cache -exec rm -rf {} +
 	find . -type d -name $(VENV) -exec rm -rf {} +
+	rm -rf data/output/
+	rm -f function_calling_results.json
 
 lint:
-	$(PYTHON) -m flake8 src --exclude=$(VENV)
-	mypy src --warn-unused-ignores \
+	$(VENV)/bin/python -m flake8 src/ --exclude=$(VENV)
+	$(VENV)/bin/mypy src/ \
+			--warn-unused-ignores \
 	        --warn-return-any \
 	        --ignore-missing-imports \
 	        --disallow-untyped-defs \
 	        --check-untyped-defs
 
 lint-strict:
-	$(PYTHON) -m flake8 src --exclude=$(VENV)
-	mypy	--strict src
+	$(VENV)/bin/python -m flake8 src/ --exclude=$(VENV)
+	$(VENV)/bin/mypy --strict src/
 
 .PHONY: install run debug clean lint lint-strict help
 

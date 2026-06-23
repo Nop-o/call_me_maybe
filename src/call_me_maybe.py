@@ -23,6 +23,7 @@ def main() -> None:
         return
     except OSError as e:
         print(e)
+        return
 
 
 if __name__ == "__main__":

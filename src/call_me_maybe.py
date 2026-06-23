@@ -24,6 +24,9 @@ def main() -> None:
     except OSError as e:
         print(e)
         return
+    except KeyboardInterrupt as e:
+        print(e)
+        return
 
 
 if __name__ == "__main__":

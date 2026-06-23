@@ -1,5 +1,6 @@
 from .prompt import Prompt
-from .manager import LlmManager
+from .llm_manager import LlmManager
+import json
 
 
 class JsonMaker:
@@ -15,7 +16,7 @@ class JsonMaker:
             if data is None:
                 data = self.json_file_info
 
-            with open(file_name, 'x') as file:
+            with open(file_name, 'w') as file:
                 file.write(json.dumps(data, indent=4))
 
     def get_json_data(self, prompts: list[Prompt]) -> None:

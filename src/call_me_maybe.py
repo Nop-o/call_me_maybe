@@ -1,19 +1,19 @@
-from .parsing import Parsing
-from .manager import LlmManager
+from .json_parsing import JsonParsing
+from .llm_manager import LlmManager
+from .json_maker import JsonMaker
 
 
 def main() -> None:
     try:
         from pydantic import ValidationError
-        parser = Parsing("data/functions_definition.json",
-                         "data/function_calling_tests.json")
-        parser.create_functions()
-        parser.create_prompts()
+        parser = JsonParsing("data/functions_definition.json",
+                             "data/function_calling_tests.json")
 
-        manager = LlmManager(parser.prompts, parser.functions)
+        manager = LlmManager(parser.functions)
+        json_maker = JsonMaker(manager)
 
-        json_file = manager.get_json()
-        manager.create_json_file(json_file)
+        json_maker.get_json_data(parser.prompts)
+        json_maker.create_json_file()
 
     except (FileNotFoundError, ImportError) as e:
         print(e)

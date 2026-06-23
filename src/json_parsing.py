@@ -4,40 +4,47 @@ from .prompt import Prompt
 import json
 
 
-class Parsing:
+class JsonParsing:
     def __init__(self, json_function_details_file: str,
                  json_prompt_file: str,) -> None:
-        self.json_function_details_file: Any = Parsing._get_json_content(
+        self.json_function_details_file: Any = JsonParsing._get_json_content(
             json_function_details_file)
-        self.json_prompt_file: Any = Parsing._get_json_content(
+        self.json_prompt_file: Any = JsonParsing._get_json_content(
             json_prompt_file)
-        self.functions: list[FunctionDetails] = []
-        self.prompts: list[Prompt] = []
+        self.functions: list[FunctionDetails] = self._create_functions()
+        self.prompts: list[Prompt] = self._create_prompts()
 
     @staticmethod
     def _get_json_content(file_name: str) -> Any:
         """Open the json file and retriewe it's content"""
-        with open(file_name, "r", encoding="utf-8") as file:
+        with open(file_name, "r") as file:
             file_content = json.load(file)
         return file_content
 
-    def create_functions(self) -> None:
+    def _create_functions(self) -> list[FunctionDetails]:
         """Create functions from the json file"""
-        for data in self.json_function_details_file:
-            self.functions.append(FunctionDetails(**data))
+        function_list: list[FunctionDetails] = []
 
-    def create_prompts(self) -> None:
+        for data in self.json_function_details_file:
+            function_list.append(FunctionDetails(**data))
+
+        return function_list
+
+    def _create_prompts(self) -> list[Prompt]:
         """Create prompts from the json file"""
+        prompt_list: list[Prompt] = []
+
         for data in self.json_prompt_file:
-            self.prompts.append(Prompt(**data))
+            prompt_list.append(Prompt(**data))
+
+        return prompt_list
 
 
 def main() -> None:
     try:
         from pydantic import ValidationError
-        parser = Parsing("data/functions_definition.json",
-                         "data/function_calling_tests.json")
-        parser.create_functions()
+        parser = JsonParsing("data/functions_definition.json",
+                             "data/function_calling_tests.json")
     except (FileNotFoundError, ImportError) as e:
         print(e)
         return

@@ -2,37 +2,19 @@ from .prompt import Prompt
 from .function import FunctionDetails
 from llm_sdk.llm_sdk import Small_LLM_Model
 import numpy as np
-import json
 from typing import Any
 
 
 class LlmManager:
-    def __init__(self, prompts: list[Prompt],
-                 functions: list[FunctionDetails]) -> None:
+    def __init__(self, functions: list[FunctionDetails]) -> None:
         self.model: Small_LLM_Model = Small_LLM_Model()
         self.constrained_logits: list[float] = self._init_logits()
         self.stop_characteres: set[int] = self._get_stop_char()
-        self.prompts: list[Prompt] = prompts
 
         self.functions: list[FunctionDetails] = functions
         self.functions_names: set[str] = self._get_functions_names()
         self.encoded_function_names: list[
             int] = self._get_encoded_function_names()
-
-    def get_json(self) -> list[dict[str, str | dict[str, str]]]:
-        return_value: list[dict[str, str | dict[str, str]]] = []
-
-        for prompt in self.prompts:
-            answer: dict[str, str | dict[str, str]] = {}
-
-            answer["prompt"]: str = prompt.prompt
-            answer["name"]: str = self.get_function_name(prompt.prompt)
-            answer["parameters"]: dict[str, str] = self.get_parameters(
-                self.find_function_from_name(answer["name"]), prompt.prompt)
-
-            return_value.append(answer)
-        print(return_value)
-        return return_value
 
     def get_function_name(self, prompt: str) -> str:
         encoded_prompt: list[int] = self.encode_prompt(
@@ -139,12 +121,6 @@ class LlmManager:
             if stop_charactere in decoded_token:
                 return True
         return False
-
-    def create_json_file(
-        self, data: dict[str, str | dict[str, str]],
-        file_name="data/output/function_calling_results.json") -> None:
-            with open(file_name, 'x') as file:
-                file.write(json.dumps(data, indent=4))
 
     def find_function_from_name(
        self, function_name: str) -> FunctionDetails | None:

@@ -10,14 +10,16 @@ class FunctionDetails(BaseModel):
 
     @model_validator(mode='after')
     def _verify_function_name(self) -> "FunctionDetails":
+        """Verify if there is space in FunctionDetails.name"""
         if " " in self.name:
             raise ValueError("Name error: the function has a ' ' (space)")
         return self
 
     @model_validator(mode='after')
     def _verify_parameters(self) -> 'FunctionDetails':
+        """Verify FunctionDetails.parameters"""
         possible_types: list[str] = [
-            "number", "string"
+            "number", "string", "float", "integer", "boolean"
         ]
 
         for key, value in self.parameters.items():
@@ -43,6 +45,7 @@ class FunctionDetails(BaseModel):
 
     @model_validator(mode='after')
     def _verify_returns(self) -> 'FunctionDetails':
+        """Verify FunctionDetails.returns"""
         possible_types: list[str] = [
             "number", "string"
         ]

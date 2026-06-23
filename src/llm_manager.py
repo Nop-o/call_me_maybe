@@ -49,8 +49,8 @@ class LlmManager:
         """Get the parameter based on his type"""
         encoded_prompt: str = self.encode_prompt(
             f'name: "{function.name}"\n'
-            f'description: "{function.description}"\n',
-            f'"{prompt}"\n',
+            f'description: "{function.description}"',
+            f'"{prompt}"',
             'parameters: {'
             f'{', '.join(f'"{key}": "{value}"' for key, value
                          in parameters.items())

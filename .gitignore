@@ -6,6 +6,7 @@ call_me_maybe_venv
 data/output/
 # C extensions
 *.so
+*.txt
 
 # Distribution / packaging
 .Python

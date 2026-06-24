@@ -19,7 +19,7 @@ class LlmManager:
         Get a string from a prompt and constrained logits created by the llm
         """
         llm_answer: list[int] = []
-        print(self.decode(prompt))
+
         while 1:
             current_logits: np.ndarray = (
                 logits + self.model.get_logits_from_input_ids(prompt))
@@ -110,7 +110,8 @@ class LlmManager:
 
     def _get_string_parameter(self, encoded_prompt: list[int]) -> str:
         """Get a string parameter"""
-        return self.get_llm_answer(np.array([]), encoded_prompt)
+        return self.get_llm_answer(
+            np.zeros(len(self.constrained_logits)), encoded_prompt)
 
     def encode_list(self, to_encode: list[str]) -> list[int]:
         """Encode a list of str into one list of token"""

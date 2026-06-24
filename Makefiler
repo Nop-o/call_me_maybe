@@ -1,4 +1,10 @@
-PYTHON = python3
+PYTHON := python3
+SRC_DIR := src
+VENV := .venv
+
+FUNCTIONS := data/input/functions_definition.json
+PROMPTS   := data/input/function_calling_tests.json
+OUTPUT    := data/output/function_calls.json
 
 .SILENT:
 
@@ -16,27 +22,37 @@ help:
 install:
 	uv sync
 
-run:
-	uv run $(PYTHON) -m src
+run: install
+	uv run $(PYTHON) -m $(SRC_DIR) \
+		--functions_definition $(FUNCTIONS) \
+		--input $(PROMPTS) \
+		--output $(OUTPUT)
 
 debug:
-	uv run $(PYTHON) -m src -m pdb -m src
+	uv run $(PYTHON) -m pdb -m $(SRC_DIR) \
+		--functions_definition $(FUNCTIONS) \
+		--input $(PROMPTS) \
+		--output $(OUTPUT)
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type d -name .mypy_cache -exec rm -rf {} +
+	find . -type d -name $(VENV) -exec rm -rf {} +
+	rm -rf data/output/
+	rm -f function_calling_results.json
 
 lint:
-	uv run flake8 src --exclude=.venv
-	uv run src --warn-unused-ignores \
+	uv run flake8 $(SRC_DIR) --exclude=$(VENV)
+	uv run mypy $(SRC_DIR) \
+			--warn-unused-ignores \
 	        --warn-return-any \
 	        --ignore-missing-imports \
 	        --disallow-untyped-defs \
 	        --check-untyped-defs
 
 lint-strict:
-	uv run flake8 src --exclude=$(VENV)
-	uv run mypy	--strict src
+	uv run flake8 $(SRC_DIR) --exclude=$(VENV)
+	uv run mypy	--strict $(SRC_DIR)
 
 .PHONY: install run debug clean lint lint-strict help
 

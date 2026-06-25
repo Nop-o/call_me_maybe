@@ -3,17 +3,20 @@
 # call_me_maybe
 
 ## Table of Contents
-- [Description](#description)
-- [The Generation Pipeline](#the-generation-pipeline)
-- [Algorithm Explanation](#algorithm-explanation)
-- [Design Decisions](#design-decisions)
-- [Performance Analysis](#performance-analysis)
-- [Challenges Faced](#challenges-faced)
-- [Testing Strategy](#testing-strategy)
-- [Instructions](#instructions)
-  - [All available commands](#all-available-commands)
-- [Example Usage](#example-usage)
-- [Resources](#resources)
+- [call\_me\_maybe](#call_me_maybe)
+	- [Table of Contents](#table-of-contents)
+	- [Description](#description)
+	- [The Generation Pipeline](#the-generation-pipeline)
+	- [Algorithm Explanation](#algorithm-explanation)
+	- [Design Decisions](#design-decisions)
+	- [Performance Analysis](#performance-analysis)
+	- [Challenges Faced](#challenges-faced)
+	- [Testing Strategy](#testing-strategy)
+	- [Instructions](#instructions)
+		- [All available commands](#all-available-commands)
+	- [Example Usage](#example-usage)
+	- [Resources](#resources)
+		- [AI Usage](#ai-usage)
 
 ---
 
@@ -136,6 +139,8 @@ For a prompt like `"What is the sum of 2 and 3?"`, the program will identify the
 [w3schools: Python built-in functions reference](https://www.w3schools.com/python/)
 
 [3Blue1Brown: YouTube video about LLMs](https://www.youtube.com/watch?v=LPZh9BOjkQs)
+
+[Json informations](https://www.json.org/json-fr.html)
 
 ### AI Usage
 

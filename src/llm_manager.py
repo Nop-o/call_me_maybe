@@ -19,8 +19,7 @@ class LlmManager:
         Get a string from a prompt and constrained logits created by the llm
         """
         llm_answer: list[int] = []
-
-        while 1:
+        while True:
             current_logits: np.ndarray = (
                 logits + self.model.get_logits_from_input_ids(prompt))
 
@@ -35,19 +34,18 @@ class LlmManager:
 
     def get_function_name(self, prompt: str) -> str:
         """Get the name of a function with a llm"""
-        encoded_prompt: list[int] = self.encode_prompt(
+        encoded_prompt: list[int] = self.encode_prompt_to_find_function_name(
             self.get_function_information(), prompt, 'name: "')
         constrained_logits: np.ndarray = self.adapt_logits(
             self.encoded_function_names)
 
+        print(self.decode(encoded_prompt))
+        print("\n\n\n")
         return self.get_llm_answer(constrained_logits, encoded_prompt)
 
     def get_parameters(
-       self, function: FunctionDetails | None, prompt: str) -> dict[str, Any]:
+       self, function: FunctionDetails, prompt: str) -> dict[str, Any]:
         """Get the parameters of a function with a llm"""
-        if function is None:
-            return {}
-
         parameters: dict[str, Any] = {}
         parameter_count: int = len(function.parameters.values())
         parameters_type: list[dict[str, str]] = [
@@ -57,6 +55,10 @@ class LlmManager:
 
         for i in range(parameter_count):
             (parameter_name, parameter_type), = parameters_type[i].items()
+
+            if parameter_type in ["boolean", "string"]:
+                prompt += '"'
+
             parameters.update(self.get_parameter(
                 parameters, function, parameter_name, parameter_type, prompt))
 
@@ -67,39 +69,51 @@ class LlmManager:
        parameter_name: str, parameter_type: str, prompt: str
        ) -> dict[str, Any]:
         """Get the parameter based on his type"""
-        encoded_prompt: list[int] = self.encode_prompt(
-            f'name: "{function.name}"\n'
-            f'description: "{function.description}"',
+        encoded_prompt: list[int] = self.encode_prompt_to_find_parameters(
+            f'\t"name": "{function.name}",\n'
+            f'\t"description": "{function.description}"',
             f'"{prompt}"',
-            'parameters: {'
-            f'{', '.join(f'"{key}": "{value}"' for key, value
+            '"parameters": {\n'
+            f'\t\t{', '.join(f'"{key}": "{value}"' for key, value
                          in parameters.items())
-                + ', ' if parameters else ''}"{parameter_name}": "'
+                + ', ' if parameters else ''}"{parameter_name}": '
             )
 
-        if parameter_type in ["number", "float"]:
+        print(self.decode(encoded_prompt))
+        print("\n\n\n")
+        if parameter_type in ["string", "array"]:
+            return {parameter_name: self._get_string_parameter(encoded_prompt)}
+
+        elif parameter_type == "hexa":
+            return {parameter_name: self._get_hexa_parameter(
+                encoded_prompt)}
+
+        elif parameter_type == "number":
             return {parameter_name: self._get_number_parameter(
-                encoded_prompt, ".")}
+                encoded_prompt)}
 
         elif parameter_type == "integer":
             return {parameter_name: int(self._get_number_parameter(
                 encoded_prompt))}
 
-        elif parameter_type == "string":
-            return {parameter_name: self._get_string_parameter(encoded_prompt)}
-
         return {parameter_name: bool(
             self._get_boolean_parameter(encoded_prompt))}
 
+    def _get_hexa_parameter(
+       self, encoded_prompt: list[int]) -> float:
+        """Get a hexa parameter"""
+        logits: np.ndarray = self.adapt_logits(self.encode_list(
+                "9876543210abcdefABCDEF"))
+        return_value = self.get_llm_answer(logits, encoded_prompt)
+        return float(return_value)
+
     def _get_number_parameter(
-       self, encoded_prompt: list[int],
-       additional_characteres: str = "") -> int | float:
+       self, encoded_prompt: list[int]) -> float:
         """Get a number parameter"""
         logits: np.ndarray = self.adapt_logits(self.encode_list(
-                ["9", "8", "7", "6", "5", "4", "3", "2", "1", "0",
-                 "-", additional_characteres]))
-
-        return float(self.get_llm_answer(logits, encoded_prompt))
+                "9876543210-."))
+        return_value = self.get_llm_answer(logits, encoded_prompt)
+        return float(return_value)
 
     def _get_boolean_parameter(self, encoded_prompt: list[int]) -> str:
         """Get a boolean parameter"""
@@ -113,7 +127,7 @@ class LlmManager:
         return self.get_llm_answer(
             np.zeros(len(self.constrained_logits)), encoded_prompt)
 
-    def encode_list(self, to_encode: list[str]) -> list[int]:
+    def encode_list(self, to_encode: str) -> list[int]:
         """Encode a list of str into one list of token"""
         encoded_list: list[int] = []
 
@@ -159,7 +173,7 @@ class LlmManager:
         """Call the encode function from the llm"""
         return self.model.encode(to_encode)[0].tolist()
 
-    def encode_prompt(
+    def encode_prompt_to_find_function_name(
        self, system_tag: str, user_tag: str,
        assistant_tag: str = "") -> list[int]:
         """
@@ -168,20 +182,36 @@ class LlmManager:
         """
         return self.encode(
             '<|im_start|>system\n'
-            f'{system_tag}<|im_end|>\n'
+            '[\n'
+            f'\t{system_tag}'
+            '\t<|im_end|>\n'
+            ']\n'
             '<|im_start|>user\n'
-            f'{user_tag}<|im_end|>\n'
+            f'{user_tag}'
+            '<|im_end|>\n'
             '<|im_start|>assistant\n'
-            f'{assistant_tag}')
+            '{\n'
+            f'\t{assistant_tag}')
 
-    def _get_functions_names(self) -> set[str]:
-        """Create a set with all the functions names"""
-        functions_names: set[str] = set()
-
-        for function in self.functions:
-            functions_names.add(function.name)
-
-        return functions_names
+    def encode_prompt_to_find_parameters(
+       self, system_tag: str, user_tag: str,
+       assistant_tag: str = "") -> list[int]:
+        """
+        Encode a prompt with a tag system to help the llm better understand
+        the received informations
+        """
+        return self.encode(
+            '<|im_start|>system\n'
+            '{\n'
+            f'{system_tag}'
+            '\t<|im_end|>\n'
+            '}\n'
+            '<|im_start|>user\n'
+            f'{user_tag}'
+            '<|im_end|>\n'
+            '\t<|im_start|>assistant\n'
+            '{\n'
+            f'\t{assistant_tag}')
 
     def get_function_information(self) -> str:
         """Encode all functions"""
@@ -189,15 +219,24 @@ class LlmManager:
 
         for function in self.functions:
             functions_informations += (
-                f'name: "{function.name}"\n'
-                f'description: "{function.description}"\n'
+                '\t{\n'
+                f'\t\tname: "{function.name}"\n'
+                f'\t\tdescription: "{function.description}"\n'
+                '\t},\n'
                 )
+        functions_informations += (
+            '\t{\n'
+            '\t\tname: "null"\n'
+            '\t\tdescription: "If you did not find any description that matches '
+            'the prompt, choose this one"\n'
+            '\t}\n'
+        )
         return functions_informations.strip()
 
     def _get_stop_char(self) -> list[int]:
         """Return the token of stop characteres"""
         list_stop_char: list[str] = [
-            ",", ".", '"', "\n", "<|endoftext|>"
+            ",", "\n", "<|endoftext|>"
         ]
 
         set_stop_char: list[int] = [
@@ -214,6 +253,7 @@ class LlmManager:
             encoded_function_names.extend(
                 self.encode(function.name)
             )
+        encoded_function_names.extend(self.encode("null"))
         return encoded_function_names
 
     def _init_logits(self) -> np.ndarray:

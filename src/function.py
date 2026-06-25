@@ -19,7 +19,7 @@ class FunctionDetails(BaseModel):
     def _verify_parameters(self) -> 'FunctionDetails':
         """Verify FunctionDetails.parameters"""
         possible_types: list[str] = [
-            "number", "string", "float", "integer", "boolean"
+            "number", "string", "integer", "boolean", "array"
         ]
 
         for key, value in self.parameters.items():

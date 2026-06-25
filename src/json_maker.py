@@ -33,7 +33,7 @@ class JsonMaker:
     def get_json_data(self, prompts: list[Prompt]) -> None:
         """Get json information based on given prompts"""
         # print("[")
-        for prompt in prompts:
+        for i, prompt in enumerate(prompts, 1):
             answer: dict[str, Any] = {}
 
             # print("\t{")
@@ -44,12 +44,22 @@ class JsonMaker:
             answer["name"] = self.manager.get_function_name(prompt.prompt)
             # print(f'\t\t"name": "{answer["name"]}",')
 
-            answer["parameters"] = self.manager.get_parameters(
-                self.manager.find_function_from_name(answer["name"]),
-                prompt.prompt)
-            # print(f'\t\t"parameters": {", ".join(answer["parameters"])}')
+            if answer["name"] == "null":
+                answer["parameters"] = "null"
+            else:
+                answer["parameters"] = self.manager.get_parameters(
+                    self.manager.find_function_from_name(answer["name"]),
+                    prompt.prompt)
 
-            # print("\t}")
+            # print('\t\t"parameters: {')
+            # print(",\n".join(f'\t\t\t"{key}": {value}' for key, value in answer[
+                # "parameters"].items()), end="")
+            # print('\n\t\t}')
+
+            # if i < len(prompts):
+            #     print("\t},")
+            # else:
+            #     print("\t}")
 
             self.json_file_info.append(answer)
         # print("]")

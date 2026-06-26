@@ -20,6 +20,7 @@ class LlmManager:
         """
         llm_answer: list[int] = []
         while True:
+            print(self.decode(llm_answer))
             current_logits: np.ndarray = (
                 logits + self.model.get_logits_from_input_ids(prompt))
 
@@ -29,7 +30,6 @@ class LlmManager:
             if self.is_there_a_stop_charactere(new_token):
                 break
             llm_answer.append(new_token)
-
         return self.decode(llm_answer)
 
     def get_function_name(self, prompt: str) -> str:
@@ -39,8 +39,7 @@ class LlmManager:
         constrained_logits: np.ndarray = self.adapt_logits(
             self.encoded_function_names)
 
-        print(self.decode(encoded_prompt))
-        print("\n\n\n")
+        
         return self.get_llm_answer(constrained_logits, encoded_prompt)
 
     def get_parameters(
@@ -55,9 +54,6 @@ class LlmManager:
 
         for i in range(parameter_count):
             (parameter_name, parameter_type), = parameters_type[i].items()
-
-            if parameter_type in ["boolean", "string"]:
-                prompt += '"'
 
             parameters.update(self.get_parameter(
                 parameters, function, parameter_name, parameter_type, prompt))
@@ -209,9 +205,30 @@ class LlmManager:
             '<|im_start|>user\n'
             f'{user_tag}'
             '<|im_end|>\n'
-            '\t<|im_start|>assistant\n'
+            '<|im_start|>assistant\n'
             '{\n'
-            f'\t{assistant_tag}')
+            f'\t{assistant_tag} ')
+
+    def encode_prompt_to_find_parameters(
+       self, system_tag: str, user_tag: str,
+       assistant_tag: str = "", parameter_type="integer") -> list[int]:
+        """
+        Encode a prompt with a tag system to help the llm better understand
+        the received informations
+        """
+        return self.encode(
+            '<|im_start|>system\n'
+            '{\n'
+            f'{system_tag}'
+            '\t<|im_end|>\n'
+            '}\n'
+            '<|im_start|>user\n'
+            f'{user_tag}'
+            '<|im_end|>\n'
+            '<|im_start|>assistant\n'
+            '{\n'
+            f'\t{assistant_tag} "'
+            f'{"\"" if parameter_type == "string" else ""}')
 
     def get_function_information(self) -> str:
         """Encode all functions"""
@@ -220,14 +237,14 @@ class LlmManager:
         for function in self.functions:
             functions_informations += (
                 '\t{\n'
-                f'\t\tname: "{function.name}"\n'
-                f'\t\tdescription: "{function.description}"\n'
+                f'\t\t"name": "{function.name}",\n'
+                f'\t\t"description": "{function.description}"\n'
                 '\t},\n'
                 )
         functions_informations += (
             '\t{\n'
-            '\t\tname: "null"\n'
-            '\t\tdescription: "If you did not find any description that matches '
+            '\t\t"name": "null",\n'
+            '\t\t"description": "If you did not find any description that matches '
             'the prompt, choose this one"\n'
             '\t}\n'
         )

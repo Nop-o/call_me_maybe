@@ -1,5 +1,10 @@
-PYTHON = python3
-VENV = call_me_maybe_venv
+PYTHON := python3
+SRC_DIR := src
+VENV := .venv
+
+FUNCTIONS := data/input/functions_definition.json
+PROMPTS   := data/input/function_calling_tests.json
+OUTPUT    := data/output/function_calls.json
 
 .SILENT:
 
@@ -14,18 +19,20 @@ help:
 	@echo "  make help					- Show this help message"
 
 
-install: 
-	$(PYTHON) -m venv $(VENV)
-	$(VENV)/bin/pip install --upgrade pip
-	$(VENV)/bin/pip install -r requirements.txt
-	@echo ""
-	@echo "source $(VENV)/bin/activate"
+install:
+	uv sync
 
-run:
-	$(VENV)/bin/python -m src.call_me_maybe $(INPUT)
+run: install
+	uv run $(PYTHON) -m $(SRC_DIR) \
+		--functions_definition $(FUNCTIONS) \
+		--input $(PROMPTS) \
+		--output $(OUTPUT)
 
 debug:
-	$(VENV)/bin/python -m pdb -m src.call_me_maybe $(INPUT)
+	uv run $(PYTHON) -m pdb -m $(SRC_DIR) \
+		--functions_definition $(FUNCTIONS) \
+		--input $(PROMPTS) \
+		--output $(OUTPUT)
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
@@ -35,8 +42,8 @@ clean:
 	rm -f function_calling_results.json
 
 lint:
-	$(VENV)/bin/python -m flake8 src/ --exclude=$(VENV)
-	$(VENV)/bin/mypy src/ \
+	uv run flake8 $(SRC_DIR) --exclude=$(VENV)
+	uv run mypy $(SRC_DIR) \
 			--warn-unused-ignores \
 	        --warn-return-any \
 	        --ignore-missing-imports \
@@ -44,8 +51,8 @@ lint:
 	        --check-untyped-defs
 
 lint-strict:
-	$(VENV)/bin/python -m flake8 src/ --exclude=$(VENV)
-	$(VENV)/bin/mypy --strict src/
+	uv run flake8 $(SRC_DIR) --exclude=$(VENV)
+	uv run mypy	--strict $(SRC_DIR)
 
 .PHONY: install run debug clean lint lint-strict help
 

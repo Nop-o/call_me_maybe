@@ -1,8 +1,8 @@
 from .function import FunctionDetails
+from .prompt import PromptEncoder
 from llm_sdk.llm_sdk import Small_LLM_Model
 import numpy as np
 from typing import Any
-from .prompt import EncodedPrompt
 
 
 class LlmManager:
@@ -10,12 +10,11 @@ class LlmManager:
         self.model: Small_LLM_Model = Small_LLM_Model()
         self.constrained_logits: np.ndarray = self._init_logits()
 
-        self.functions: list[
-            FunctionDetails] = functions + [LlmManager._create_null_function()]
+        self.functions: list[FunctionDetails] = functions
         self.encoded_function_names: list[
             int] = self._get_encoded_function_names()
 
-        self.prompt_encoder = EncodedPrompt()
+        self.prompt_encoder = PromptEncoder(self.model)
 
     def get_llm_answer(
        self, logits: np.ndarray, prompt: list[int],
@@ -42,8 +41,13 @@ class LlmManager:
     def get_function_name(self, prompt: str) -> str:
         """Get the name of a function with a llm"""
         encoded_prompt: list[
-            int] = self.prompt_encoder.encode_prompt_to_find_function_name(
-            self.get_function_information(), prompt, '"name": "')
+            int] = self.prompt_encoder.encode_prompt(
+            '[\n'
+            f'{self.get_function_information()}\n'
+            ']',
+            prompt,
+            "{\n"
+            '   "name": "')
         stop_characteres = self.encode_list("\"\n<|endoftext|> ")
         constrained_logits: np.ndarray = self.adapt_logits(
             self.encoded_function_names, stop_characteres)
@@ -57,7 +61,7 @@ class LlmManager:
         print(function)
         print(prompt)
 
-        if not function.parameters:
+        if not function:
             return {}
 
         parameters: dict[str, Any] = {}
@@ -81,14 +85,16 @@ class LlmManager:
        ) -> dict[str, Any]:
         """Get the parameter based on his type"""
         encoded_prompt: list[
-            int] = self.prompt_encoder.encode_prompt_to_find_parameters(
+            int] = self.prompt_encoder.encode_prompt(
+            '{\n'
             f'  "name": "{function.name}",\n'
-            f'  "description": "{function.description}"',
+            f'  "description": "{function.description}"\n'
+            '}',
             f'{prompt}',
             f"""
 "parameters": {'{'}
         {', '.join(f'"{key}": "{value}"' for key, value in parameters.items())
-         + ', ' if parameters else ''}"{parameter_name}":
+                + ', ' if parameters else ''}"{parameter_name}":
             """,
             parameter_type
             )
@@ -130,7 +136,6 @@ class LlmManager:
 
         return self.get_llm_answer(logits, encoded_prompt, stop_characteres)
 
-
     def _get_boolean_parameter(self, encoded_prompt: list[int]) -> str:
         """Get a boolean parameter"""
         stop_characteres = self.encode_list("\"\n<|endoftext|>")
@@ -157,7 +162,8 @@ class LlmManager:
 
         return encoded_list
 
-    def is_there_a_stop_charactere(self, token: int, stop_characteres: list[int]) -> bool:
+    def is_there_a_stop_charactere(
+       self, token: int, stop_characteres: list[int]) -> bool:
         """Look if there is a stop charactere in a token"""
         decoded_token: str = self.decode([token])
         decoded_stop_characteres: str = self.decode(stop_characteres)
@@ -177,7 +183,7 @@ class LlmManager:
 
     def adapt_logits(
        self, usable_token: list[int],
-       stop_characteres : list[int]) -> np.ndarray:
+       stop_characteres: list[int]) -> np.ndarray:
         """Turn the function tokens logits to 0 instead of -inf"""
         new_logits: np.ndarray = self.constrained_logits.copy()
 
@@ -197,18 +203,23 @@ class LlmManager:
         return self.model.encode(to_encode)[0].tolist()
 
     def get_function_information(self) -> str:
-        """Encode all functions"""
-        functions_informations: str = ""
-
+        """Get all the functions informations"""
+        items = []
         for function in self.functions:
-            functions_informations += (
-    f"""
-    {"{"}
-        "name": "{function.name}",
-        "description": "{function.description}"
-    {"}"},""")
-        
-        return functions_informations.strip()
+            items.append(
+                f'    {{\n'
+                f'        "name": "{function.name}",\n'
+                f'        "description": "{function.description}"\n'
+                f'    }}'
+            )
+        items.append(
+            '    {\n'
+            '        "name": "null",\n'
+            '        "description": "If you did not find any function that matches'
+            ' the prompt, choose this one"\n'
+            '    }'
+        )
+        return ',\n'.join(items)
 
     def _get_encoded_function_names(self) -> list[int]:
         """Encode the functions name"""
@@ -219,20 +230,12 @@ class LlmManager:
                 self.encode(function.name)
             )
         encoded_function_names.extend(self.encode("null"))
+
         return encoded_function_names
 
     def _init_logits(self) -> np.ndarray:
         """Init every logit to -inf"""
         logit_count = len(self.model.get_logits_from_input_ids(
             [self.model._tokenizer.eos_token_id]))
-        return np.full(logit_count, -float('inf'))
 
-    @staticmethod
-    def _create_null_function() -> FunctionDetails:
-        return FunctionDetails(
-            name = "null",
-            description = "If you did not find any description that matches "
-            "the prompt, choose this one.",
-            parameters = {"null": {"type" : "null"}},
-            returns = {"type": "null"}
-        )
+        return np.full(logit_count, -float('inf'))

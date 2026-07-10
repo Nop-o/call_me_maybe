@@ -1,5 +1,4 @@
 from .function import FunctionDetails
-from .prompt import PromptEncoder
 from llm_sdk.llm_sdk import Small_LLM_Model
 import numpy as np
 from typing import Any
@@ -43,19 +42,13 @@ class LlmManager:
         encoded_prompt: list[int] = self.encode_prompt_to_find_function_name(
             self.get_function_information(), prompt, '"name": "')
         constrained_logits: np.ndarray = self.adapt_logits(
-            self.encoded_function_names, stop_characteres)
+                self.encoded_function_names)
 
         return self.get_llm_answer(constrained_logits, encoded_prompt)
 
     def get_parameters(
        self, function: FunctionDetails, prompt: str) -> dict[str, Any]:
         """Get the parameters of a function with a llm"""
-        print(function)
-        print(prompt)
-
-        if not function:
-            return {}
-
         parameters: dict[str, Any] = {}
         parameter_count: int = len(function.parameters.values())
         parameters_type: list[dict[str, str]] = [
@@ -136,7 +129,7 @@ class LlmManager:
     def _get_number_parameter(
        self, encoded_prompt: list[int]) -> float:
         """Get a number parameter"""
-        stop_characteres = self.encode_list("\"\n<|endoftext|>")
+        stop_characteres = self.stop_characteres
         logits: np.ndarray = self.adapt_logits(self.encode_list(
                 "9876543210-."))
         return_value = self.get_llm_answer(logits, encoded_prompt)
@@ -179,8 +172,7 @@ class LlmManager:
 
         return encoded_list
 
-    def is_there_a_stop_charactere(
-       self, token: int, stop_characteres: list[int]) -> bool:
+    def is_there_a_stop_charactere(self, token: int) -> bool:
         """Look if there is a stop charactere in a token"""
         decoded_token: str = self.decode([token])
 
@@ -198,8 +190,7 @@ class LlmManager:
         return None
 
     def adapt_logits(
-       self, usable_token: list[int],
-       stop_characteres: list[int]) -> np.ndarray:
+       self, usable_token: list[int]) -> np.ndarray:
         """Turn the function tokens logits to 0 instead of -inf"""
         new_logits: np.ndarray = self.constrained_logits.copy()
 
@@ -259,7 +250,8 @@ class LlmManager:
 
     def get_function_information(self) -> str:
         """Get all the functions informations"""
-        items = []
+        functions_informations: str = ""
+
         for function in self.functions:
             functions_informations += (
                 '\t{\n'

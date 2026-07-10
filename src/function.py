@@ -19,7 +19,7 @@ class FunctionDetails(BaseModel):
     def _verify_parameters(self) -> 'FunctionDetails':
         """Verify FunctionDetails.parameters"""
         possible_types: list[str] = [
-            "number", "string", "integer", "boolean", "array"
+            "number", "string", "integer", "boolean", "array", "hexa"
         ]
 
         for key, value in self.parameters.items():
@@ -47,7 +47,7 @@ class FunctionDetails(BaseModel):
     def _verify_returns(self) -> 'FunctionDetails':
         """Verify FunctionDetails.returns"""
         possible_types: list[str] = [
-            "number", "string"
+            "number", "string", "integer", "boolean", "array", "hexa"
         ]
         if len(self.returns) > 1:
             raise ValueError("Return error: too many return value")

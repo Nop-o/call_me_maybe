@@ -1,4 +1,5 @@
 from .function import FunctionDetails
+from .prompt import PromptEncoder
 from llm_sdk.llm_sdk import Small_LLM_Model
 import numpy as np
 from typing import Any
@@ -29,7 +30,7 @@ class LlmManager:
             new_token = int(np.argmax(current_logits))
             prompt.append(new_token)
 
-            if self.is_there_a_stop_charactere(new_token) is True:
+            if self.is_there_a_stop_charactere(new_token):
                 llm_answer.extend(self.get_last_tokens(new_token))
                 break
 
@@ -42,13 +43,19 @@ class LlmManager:
         encoded_prompt: list[int] = self.encode_prompt_to_find_function_name(
             self.get_function_information(), prompt, '"name": "')
         constrained_logits: np.ndarray = self.adapt_logits(
-            self.encoded_function_names)
+            self.encoded_function_names, stop_characteres)
 
         return self.get_llm_answer(constrained_logits, encoded_prompt)
 
     def get_parameters(
        self, function: FunctionDetails, prompt: str) -> dict[str, Any]:
         """Get the parameters of a function with a llm"""
+        print(function)
+        print(prompt)
+
+        if not function:
+            return {}
+
         parameters: dict[str, Any] = {}
         parameter_count: int = len(function.parameters.values())
         parameters_type: list[dict[str, str]] = [
@@ -68,7 +75,7 @@ class LlmManager:
        self, parameters: dict[str, dict[str, Any]], function: FunctionDetails,
        parameter_name: str, parameter_type: str, prompt: str
        ) -> dict[str, Any]:
-        """Get the parameter tagd on his type"""
+        """Get the parameter tag on his type"""
         system_tag: str = (
             f'\t"name": "{function.name}",\n'
             f'\t"description": "{function.description}"')
@@ -129,6 +136,7 @@ class LlmManager:
     def _get_number_parameter(
        self, encoded_prompt: list[int]) -> float:
         """Get a number parameter"""
+        stop_characteres = self.encode_list("\"\n<|endoftext|>")
         logits: np.ndarray = self.adapt_logits(self.encode_list(
                 "9876543210-."))
         return_value = self.get_llm_answer(logits, encoded_prompt)
@@ -137,13 +145,17 @@ class LlmManager:
 
     def _get_boolean_parameter(self, encoded_prompt: list[int]) -> str:
         """Get a boolean parameter"""
+        stop_characteres = self.encode_list("\"\n<|endoftext|>")
         logits: np.ndarray = self.adapt_logits(self.encode("True") +
-                                               self.encode("False"))
+                                               self.encode("False"),
+                                               stop_characteres)
 
-        return self.get_llm_answer(logits, encoded_prompt)
+        return self.get_llm_answer(logits, encoded_prompt, stop_characteres)
 
     def _get_string_parameter(self, encoded_prompt: list[int]) -> str:
         """Get a string parameter"""
+        stop_characteres = self.encode_list("\n<|endoftext|>")
+
         return self.get_llm_answer(
             np.zeros(len(self.constrained_logits)), encoded_prompt).strip()
 
@@ -167,7 +179,8 @@ class LlmManager:
 
         return encoded_list
 
-    def is_there_a_stop_charactere(self, token: int) -> bool:
+    def is_there_a_stop_charactere(
+       self, token: int, stop_characteres: list[int]) -> bool:
         """Look if there is a stop charactere in a token"""
         decoded_token: str = self.decode([token])
 
@@ -184,7 +197,9 @@ class LlmManager:
                 return function
         return None
 
-    def adapt_logits(self, usable_token: list[int]) -> np.ndarray:
+    def adapt_logits(
+       self, usable_token: list[int],
+       stop_characteres: list[int]) -> np.ndarray:
         """Turn the function tokens logits to 0 instead of -inf"""
         new_logits: np.ndarray = self.constrained_logits.copy()
 
@@ -243,9 +258,8 @@ class LlmManager:
             f'\t{assistant_tag}')
 
     def get_function_information(self) -> str:
-        """Encode all functions"""
-        functions_informations: str = ""
-
+        """Get all the functions informations"""
+        items = []
         for function in self.functions:
             functions_informations += (
                 '\t{\n'
@@ -275,10 +289,12 @@ class LlmManager:
                 self.encode(function.name)
             )
         encoded_function_names.extend(self.encode("null"))
+
         return encoded_function_names
 
     def _init_logits(self) -> np.ndarray:
         """Init every logit to -inf"""
         logit_count = len(self.model.get_logits_from_input_ids(
             [self.model._tokenizer.eos_token_id]))
+
         return np.full(logit_count, -float('inf'))

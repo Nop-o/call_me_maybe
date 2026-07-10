@@ -1,5 +1,6 @@
 from .prompt import Prompt
 from .llm_manager import LlmManager
+from .function import FunctionDetails
 from pathlib import Path
 from typing import Any
 import json
@@ -32,34 +33,38 @@ class JsonMaker:
 
     def get_json_data(self, prompts: list[Prompt]) -> None:
         """Get json information based on given prompts"""
-        # print("[")
+        print("[")
         for i, prompt in enumerate(prompts, 1):
             answer: dict[str, Any] = {}
 
-            # print("\t{")
+            print("\t{")
 
             answer["prompt"] = prompt.prompt
-            # print(f'\t\t"prompt": "{answer["prompt"]}",')
+            print(f'\t\t"prompt": "{answer["prompt"]}",')
 
             answer["name"] = self.manager.get_function_name(prompt.prompt)
-            # print(f'\t\t"name": "{answer["name"]}",')
+            print(f'\t\t"name": "{answer["name"]}",')
+            print('\t\t"parameters: ', end="")
 
-            if answer["name"] == "null":
-                answer["parameters"] = "null"
+            function_name: FunctionDetails | None = (
+                self.manager.find_function_from_name(answer["name"]))
+
+            if answer["name"] == "null" or function_name is None:
+                answer["parameters"] = {}
+                print('{}')
             else:
                 answer["parameters"] = self.manager.get_parameters(
-                    self.manager.find_function_from_name(answer["name"]),
-                    prompt.prompt)
+                    function_name, prompt.prompt)
+                print('{')
+                print(",\n".join(f'\t\t\t"{key}": "{value}"' for key, value
+                                 in answer[
+                    "parameters"].items()), end="")
+                print('\n\t\t}')
 
-            # print('\t\t"parameters: {')
-            # print(",\n".join(f'\t\t\t"{key}": {value}' for key, value in answer[
-                # "parameters"].items()), end="")
-            # print('\n\t\t}')
-
-            # if i < len(prompts):
-            #     print("\t},")
-            # else:
-            #     print("\t}")
+            if i < len(prompts):
+                print("\t},")
+            else:
+                print("\t}")
 
             self.json_file_info.append(answer)
-        # print("]")
+        print("]")

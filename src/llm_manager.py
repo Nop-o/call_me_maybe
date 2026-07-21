@@ -15,14 +15,13 @@ class LlmManager:
             int] = self._get_encoded_function_names()
 
     def get_llm_answer(
-       self, logits: np.ndarray, prompt: list[int],
-       max_token: int = 30) -> str:
+       self, logits: np.ndarray, prompt: list[int]) -> str:
         """
         Get a string from a prompt and constrained logits created by the llm
         """
         llm_answer: list[int] = []
 
-        for i in range(max_token):
+        for i in range(len(prompt) + 10):
             current_logits: np.ndarray = (
                 logits + self.model.get_logits_from_input_ids(prompt))
 

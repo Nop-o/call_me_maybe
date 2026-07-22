@@ -20,7 +20,8 @@ class LlmManager:
         Get a string from a prompt and constrained logits created by the llm
         """
         llm_answer: list[int] = []
-
+        print(self.decode(prompt))
+        print("\n\n\------------------------------/\n")
         for i in range(len(prompt) + 10):
             current_logits: np.ndarray = (
                 logits + self.model.get_logits_from_input_ids(prompt))
@@ -49,13 +50,12 @@ class LlmManager:
        self, function: FunctionDetails, prompt: str) -> dict[str, Any]:
         """Get the parameters of a function with a llm"""
         parameters: dict[str, Any] = {}
-        parameter_count: int = len(function.parameters.values())
         parameters_type: list[dict[str, str]] = [
             {name: parameter['type']} for name, parameter
             in function.parameters.items()
         ]
 
-        for i in range(parameter_count):
+        for i in range(len(function.parameters.values())):
             (parameter_name, parameter_type), = parameters_type[i].items()
 
             parameters.update(self.get_parameter(
@@ -70,7 +70,8 @@ class LlmManager:
         """Get the parameter tag on his type"""
         system_tag: str = (
             f'\t"name": "{function.name}",\n'
-            f'\t"description": "{function.description}"')
+            f'\t"description": "{function.description}"\n'
+            f'\t"parameters": "{function.parameters}"')
         user_tag: str = f'"{prompt}"'
         assistant_tag: str = (
             '"parameters": {\n\t\t'

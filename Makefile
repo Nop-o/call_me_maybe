@@ -2,8 +2,8 @@ PYTHON := python3
 SRC_DIR := src
 VENV := .venv
 
-FUNCTIONS := data/input/functions_definition.json
-PROMPTS   := data/input/function_calling_tests.json
+FUNCTIONS := data/functions_definition.json
+PROMPTS   := data/function_calling_tests.json
 OUTPUT    := data/output/function_calls.json
 
 .DEFAULT_GOAL := help

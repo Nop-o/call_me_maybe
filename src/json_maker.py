@@ -32,40 +32,78 @@ class JsonMaker:
         except PermissionError as e:
             print(e)
 
+    # def get_json_data(self, prompts: list[Prompt]) -> None:
+    #     """Get json information based on given prompts"""
+    #     print("[")
+    #     for i, prompt in enumerate(prompts, 1):
+    #         answer: dict[str, Any] = {}
+
+    #         print("\t{")
+
+    #         answer["prompt"] = prompt.prompt
+    #         print(f'\t\t"prompt": "{answer["prompt"]}",')
+
+    #         answer["name"] = self.manager.get_function_name(prompt.prompt)
+    #         print(f'\t\t"name": "{answer["name"]}",')
+    #         print('\t\t"parameters: ', end="")
+
+    #         function_name: FunctionDetails | None = (
+    #             self.manager.find_function_from_name(answer["name"]))
+
+    #         if answer["name"] == "null" or function_name is None:
+    #             answer["parameters"] = {}
+    #             print('{}')
+    #         else:
+    #             answer["parameters"] = self.manager.get_parameters(
+    #                 function_name, prompt.prompt)
+    #             print('{')
+    #             print(",\n".join(f'\t\t\t"{key}": "{value}"' for key, value
+    #                              in answer[
+    #                 "parameters"].items()), end="")
+    #             print('\n\t\t}')
+
+    #         if i < len(prompts):
+    #             print("\t},")
+    #         else:
+    #             print("\t}")
+
+    #         self.json_file_info.append(answer)
+    #     print("]")
+
     def get_json_data(self, prompts: list[Prompt]) -> None:
         """Get json information based on given prompts"""
-        print("[")
+        # print("[")
         for i, prompt in enumerate(prompts, 1):
             answer: dict[str, Any] = {}
 
-            print("\t{")
+            # print("\t{")
 
             answer["prompt"] = prompt.prompt
-            print(f'\t\t"prompt": "{answer["prompt"]}",')
+            # print(f'\t\t"prompt": "{answer["prompt"]}",')
 
             answer["name"] = self.manager.get_function_name(prompt.prompt)
-            print(f'\t\t"name": "{answer["name"]}",')
-            print('\t\t"parameters: ', end="")
+            # print(f'\t\t"name": "{answer["name"]}",')
+            # print('\t\t"parameters: ', end="")
 
             function_name: FunctionDetails | None = (
                 self.manager.find_function_from_name(answer["name"]))
 
             if answer["name"] == "null" or function_name is None:
                 answer["parameters"] = {}
-                print('{}')
+                # print('{}')
             else:
                 answer["parameters"] = self.manager.get_parameters(
                     function_name, prompt.prompt)
-                print('{')
-                print(",\n".join(f'\t\t\t"{key}": "{value}"' for key, value
-                                 in answer[
-                    "parameters"].items()), end="")
-                print('\n\t\t}')
+                # print('{')
+                # print(",\n".join(f'\t\t\t"{key}": "{value}"' for key, value
+                #                  in answer[
+                #     "parameters"].items()), end="")
+                # print('\n\t\t}')
 
-            if i < len(prompts):
-                print("\t},")
-            else:
-                print("\t}")
+            # if i < len(prompts):
+            #     print("\t},")
+            # else:
+            #     print("\t}")
 
             self.json_file_info.append(answer)
-        print("]")
+        # print("]")

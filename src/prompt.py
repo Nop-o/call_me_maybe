@@ -8,12 +8,12 @@ class Prompt(BaseModel):
 
 class PromptEncoder:
 
-    def __init__(self, model) -> None:
+    def __init__(self, model: Small_LLM_Model) -> None:
         self.model: Small_LLM_Model = model
 
     def encode_prompt(
        self, system_tag: str, user_tag: str,
-       assistant_tag: str = "", parameter_type="integer") -> list[int]:
+       assistant_tag: str = "", parameter_type: str = "integer") -> list[int]:
         """
         Encode a prompt with a tag system to help the llm better understand
         the received informations
@@ -35,4 +35,4 @@ class PromptEncoder:
 
     def encode(self, to_encode: str) -> list[int]:
         """Call the encode function from the llm"""
-        return self.model.encode(to_encode)[0].tolist()
+        return list(self.model.encode(to_encode)[0].tolist())

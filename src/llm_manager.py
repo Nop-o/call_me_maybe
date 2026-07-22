@@ -28,7 +28,7 @@ class LlmManager:
             new_token = int(np.argmax(current_logits))
             prompt.append(new_token)
 
-            if self.is_there_a_stop_charactere(new_token):
+            if self.is_there_a_stop_charactere(new_token, llm_answer):
                 llm_answer.extend(self.get_last_tokens(new_token))
                 break
 
@@ -73,10 +73,10 @@ class LlmManager:
             f'\t"description": "{function.description}"')
         user_tag: str = f'"{prompt}"'
         assistant_tag: str = (
-            '"parameters": {\n'
-            f'\t\t{', '.join(f'"{key}": "{value}"' for key, value
-                             in parameters.items())
-                   + ', ' if parameters else ''}"{parameter_name}": '
+            '"parameters": {\n\t\t'
+            ', '.join(f'"{key}": "{value}"' for key, value
+                      in parameters.items()) + ', ' if parameters else ''
+            f'"{parameter_name}": '
         )
 
         if parameter_type not in ["integer", "number"]:
@@ -128,9 +128,8 @@ class LlmManager:
     def _get_number_parameter(
        self, encoded_prompt: list[int]) -> float:
         """Get a number parameter"""
-        stop_characteres = self.stop_characteres
-        logits: np.ndarray = self.adapt_logits(self.encode_list(
-                "9876543210-."))
+        logits: np.ndarray = self.adapt_logits(
+            self.encode_list("9876543210-."))
         return_value = self.get_llm_answer(logits, encoded_prompt)
 
         return float(return_value)
@@ -138,16 +137,13 @@ class LlmManager:
     def _get_boolean_parameter(self, encoded_prompt: list[int]) -> str:
         """Get a boolean parameter"""
         stop_characteres = self.encode_list("\"\n<|endoftext|>")
-        logits: np.ndarray = self.adapt_logits(self.encode("True") +
-                                               self.encode("False"),
-                                               stop_characteres)
+        logits: np.ndarray = self.adapt_logits(
+            self.encode("True") + self.encode("False") + stop_characteres)
 
-        return self.get_llm_answer(logits, encoded_prompt, stop_characteres)
+        return self.get_llm_answer(logits, encoded_prompt)
 
     def _get_string_parameter(self, encoded_prompt: list[int]) -> str:
         """Get a string parameter"""
-        stop_characteres = self.encode_list("\n<|endoftext|>")
-
         return self.get_llm_answer(
             np.zeros(len(self.constrained_logits)), encoded_prompt).strip()
 
@@ -171,10 +167,14 @@ class LlmManager:
 
         return encoded_list
 
-    def is_there_a_stop_charactere(self, token: int) -> bool:
+    def is_there_a_stop_charactere(
+       self, token: int, llm_answer: list[int]) -> bool:
         """Look if there is a stop charactere in a token"""
         decoded_token: str = self.decode([token])
+        decoded_llm_answer: str = self.decode(llm_answer)
 
+        if '<|endoftext|>' in decoded_llm_answer:
+            return True
         for stop_charactere in self.stop_characteres:
             if stop_charactere in decoded_token:
                 return True

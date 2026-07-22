@@ -8,25 +8,26 @@ import json
 
 class JsonMaker:
 
-    def __init__(self,  manager: LlmManager) -> None:
+    def __init__(self,  manager: LlmManager, file_path: str) -> None:
         self.manager: LlmManager = manager
         self.json_file_info: list[dict[str, Any]] = []
+        self.file_path: str = file_path
 
     def create_json_file(
-       self, data: list[dict[str, Any]] = [],
-       file_name: str = "data/output/function_calling_results.json") -> None:
+       self, data: list[dict[str, Any]] = []) -> None:
         """Create a json file"""
         if not data:
             data = self.json_file_info
 
-        try:
-            directory_path = Path.cwd() / "data/output"
-            directory_path.mkdir()
-        except FileExistsError:
-            pass
+        file_path = Path(self.file_path)
+        if file_path.is_absolute():
+            directory_path = file_path.parent
+        else:
+            directory_path = Path.cwd() / file_path.parent
+        directory_path.mkdir(parents=True, exist_ok=True)
 
         try:
-            with open(file_name, 'w') as file:
+            with open(self.file_path, 'w') as file:
                 file.write(json.dumps(data, indent=4))
         except PermissionError as e:
             print(e)

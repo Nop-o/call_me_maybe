@@ -1,30 +1,27 @@
 from .json_parsing import JsonParsing
 from .llm_manager import LlmManager
 from .json_maker import JsonMaker
+from .flags import get_flags
 
 
 def main() -> None:
     try:
         from pydantic import ValidationError
-        parser = JsonParsing("data/functions_definition.json",
-                             "data/function_calling_tests.json")
+
+        flags = get_flags()
+        parser = JsonParsing(flags.functions_definition,
+                             flags.input)
 
         manager = LlmManager(parser.functions)
-        json_maker = JsonMaker(manager)
 
+        json_maker = JsonMaker(manager, flags.output)
         json_maker.get_json_data(parser.prompts)
         json_maker.create_json_file()
 
-    except (FileNotFoundError, ImportError) as e:
-        print(e)
-        return
     except ValidationError as e:
         print(e.errors()[0]["msg"].replace("Value error, ", ""))
         return
-    except OSError as e:
-        print(e)
-        return
-    except KeyboardInterrupt as e:
+    except (FileNotFoundError, ImportError, OSError, KeyboardInterrupt) as e:
         print(e)
         return
 

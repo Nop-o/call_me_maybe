@@ -19,3 +19,7 @@ packages = ["src"]
 module = ["llm_sdk.*"]
 ignore_errors = true
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "numpy.*"
+ignore_missing_imports = true

@@ -29,10 +29,43 @@ class PromptEncoder:
 <|im_start|>assistant
 {assistant_tag}""")
 
-    def decode(self, to_decode: list[int]) -> str:
-        """Call the decode function from the llm"""
-        return self.model.decode(to_decode)
-
     def encode(self, to_encode: str) -> list[int]:
         """Call the encode function from the llm"""
         return list(self.model.encode(to_encode)[0].tolist())
+
+    def encode_prompt_to_find_function_name(
+       self, system_tag: str, user_tag: str, assistant_tag: str) -> list[int]:
+        """
+        Encode a prompt with a tag system to help the llm better understand
+        the received informations
+        """
+        return self.encode(
+            '<|im_start|>system\n'
+            '[\n'
+            f'\t{system_tag}\n'
+            ']<|im_end|>\n'
+            '<|im_start|>user\n'
+            f'{user_tag}'
+            '<|im_end|>\n'
+            '<|im_start|>assistant\n'
+            '{\n'
+            f'\t{assistant_tag}')
+
+    def encode_prompt_to_find_parameters(
+       self, system_tag: str, user_tag: str, assistant_tag: str) -> list[int]:
+        """
+        Encode a prompt with a tag system to help the llm better understand
+        the received informations
+        """
+        return self.encode(
+            '<|im_start|>system\n'
+            '{\n'
+            f'{system_tag}\n'
+            '}<|im_end|>\n'
+            '<|im_start|>user\n'
+            f'{user_tag}'
+            '<|im_end|>\n'
+            '<|im_start|>assistant\n'
+            '{\n'
+            '\t"parameters": {\n'
+            f'\t\t{assistant_tag}')

@@ -16,16 +16,18 @@ class LlmManager:
         self.functions: list[FunctionDetails] = functions
         self.encoded_function_names: list[
             int] = self._get_encoded_function_names()
+        self.longest_function_name = self._get_longest_function_name()
 
     def get_llm_answer(
-       self, logits: np.ndarray, prompt: list[int]) -> str:
+       self, logits: np.ndarray, prompt: list[int],
+       max_len_answer: int) -> str:
         """
         Get a string from a prompt and constrained logits created by the llm
         """
         llm_answer: list[int] = []
         print(self.decode(prompt))
         print("\n\n\\------------------------------/\n")
-        for i in range(len(prompt) + 10):
+        for i in range(max_len_answer):
             current_logits: np.ndarray = (
                 logits + self.model.get_logits_from_input_ids(prompt))
 
@@ -48,7 +50,8 @@ class LlmManager:
         constrained_logits: np.ndarray = self.adapt_logits(
                 self.encoded_function_names)
 
-        return self.get_llm_answer(constrained_logits, encoded_prompt)
+        return self.get_llm_answer(
+            constrained_logits, encoded_prompt, self.longest_function_name)
 
     def get_parameters(
        self, function: FunctionDetails, prompt: str) -> dict[str, Any]:
@@ -106,30 +109,33 @@ class LlmManager:
             int] = self.prompt_encoder.encode_prompt_to_find_parameters(
             system_tag, user_tag, assistant_tag)
 
+        max_len_answers = len(prompt) + 10
+
         if parameter_type == "string":
-            return {parameter_name: self._get_string_parameter(encoded_prompt)}
+            return {parameter_name: self._get_string_parameter(
+                encoded_prompt, max_len_answers)}
 
         elif parameter_type == "array":
-            return {parameter_name:
-                    self._get_string_parameter(encoded_prompt).split(", ")}
+            return {parameter_name: self._get_string_parameter(
+                        encoded_prompt, max_len_answers).split(", ")}
 
         elif parameter_type == "hexa":
             return {parameter_name: self._get_hexa_parameter(
-                encoded_prompt)}
+                encoded_prompt, max_len_answers)}
 
         elif parameter_type == "number":
             return {parameter_name: self._get_number_parameter(
-                encoded_prompt)}
+                encoded_prompt, max_len_answers)}
 
         elif parameter_type == "integer":
             return {parameter_name: int(self._get_number_parameter(
-                encoded_prompt))}
+                encoded_prompt, max_len_answers))}
 
-        return {parameter_name:
-                self._get_boolean_parameter(encoded_prompt) == 'True'}
+        return {parameter_name: self._get_boolean_parameter(
+                    encoded_prompt, max_len_answers) == 'True'}
 
     def _get_hexa_parameter(
-       self, encoded_prompt: list[int]) -> str:
+       self, encoded_prompt: list[int], max_len_answer: int) -> str:
         """Get a hexa parameter"""
         valid_chars: set[str] = set("0123456789abcdefABCDEF")
         allowed_tokens: list[int] = []
@@ -141,29 +147,31 @@ class LlmManager:
 
         logits: np.ndarray = self.adapt_logits(allowed_tokens)
 
-        return self.get_llm_answer(logits, encoded_prompt)
+        return self.get_llm_answer(logits, encoded_prompt, max_len_answer)
 
     def _get_number_parameter(
-       self, encoded_prompt: list[int]) -> float:
+       self, encoded_prompt: list[int], max_len_answer: int) -> float:
         """Get a number parameter"""
         logits: np.ndarray = self.adapt_logits(
             self.encode_list("9876543210-."))
-        return_value = self.get_llm_answer(logits, encoded_prompt)
 
-        return float(return_value)
+        return float(
+            self.get_llm_answer(logits, encoded_prompt, max_len_answer))
 
-    def _get_boolean_parameter(self, encoded_prompt: list[int]) -> str:
+    def _get_boolean_parameter(
+       self, encoded_prompt: list[int], max_len_answer: int) -> str:
         """Get a boolean parameter"""
         stop_characteres = self.encode_list("\"\n<|endoftext|>")
         logits: np.ndarray = self.adapt_logits(
             self.encode("True") + self.encode("False") + stop_characteres)
 
-        return self.get_llm_answer(logits, encoded_prompt)
+        return self.get_llm_answer(logits, encoded_prompt, max_len_answer)
 
-    def _get_string_parameter(self, encoded_prompt: list[int]) -> str:
+    def _get_string_parameter(
+       self, encoded_prompt: list[int], max_len_answer: int) -> str:
         """Get a string parameter"""
-        return self.get_llm_answer(
-            np.zeros(len(self.constrained_logits)), encoded_prompt).strip()
+        return self.get_llm_answer(np.zeros(len(
+            self.constrained_logits)), encoded_prompt, max_len_answer).strip()
 
     def get_last_tokens(self, tokens: int) -> list[int]:
         decoded_tokens: str = self.decode([tokens])
@@ -267,3 +275,6 @@ class LlmManager:
             [self.model._tokenizer.eos_token_id]))
 
         return np.full(logit_count, -float('inf'))
+
+    def _get_longest_function_name(self) -> int:
+        return max(len(function.name) for function in self.functions)

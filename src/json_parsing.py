@@ -38,21 +38,3 @@ class JsonParsing:
             prompt_list.append(Prompt(**data))
 
         return prompt_list
-
-
-def main() -> None:
-    try:
-        from pydantic import ValidationError
-        parser = JsonParsing("data/functions_definition.json",
-                             "data/function_calling_tests.json")
-    except (FileNotFoundError, ImportError) as e:
-        print(e)
-        return
-    except ValidationError as e:
-        print(e.errors()[0]["msg"].replace("Value error, ", ""))
-        return
-    print(parser.functions)
-
-
-if __name__ == "__main__":
-    main()

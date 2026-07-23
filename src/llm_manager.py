@@ -1,5 +1,6 @@
 from .function import FunctionDetails
 from llm_sdk.llm_sdk import Small_LLM_Model
+from .prompt import PromptEncoder
 import numpy as np
 from typing import Any
 

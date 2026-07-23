@@ -25,8 +25,7 @@ class LlmManager:
         Get a string from a prompt and constrained logits created by the llm
         """
         llm_answer: list[int] = []
-        print(self.decode(prompt))
-        print("\n\n\\------------------------------/\n")
+
         for i in range(max_len_answer):
             current_logits: np.ndarray = (
                 logits + self.model.get_logits_from_input_ids(prompt))

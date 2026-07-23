@@ -2,6 +2,7 @@ from .json_parsing import JsonParsing
 from .llm_manager import LlmManager
 from .json_maker import JsonMaker
 from .flags import get_flags
+import json
 
 
 def main() -> None:
@@ -21,8 +22,14 @@ def main() -> None:
     except ValidationError as e:
         print(e.errors()[0]["msg"].replace("Value error, ", ""))
         return
-    except (FileNotFoundError, ImportError, OSError, KeyboardInterrupt) as e:
-        print(e)
+    except (FileNotFoundError, ImportError, OSError) as e:
+        print(f"File error: {e}")
+        return
+    except KeyboardInterrupt:
+        print("\nCommand error: call_me_maybe has been interrupted")
+        return
+    except json.decoder.JSONDecodeError as e:
+        print(f'Json format error:\n{e}')
         return
 
 
@@ -30,4 +37,4 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(e)
+        print(f'Special error: {e}')

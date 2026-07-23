@@ -144,6 +144,6 @@ For a prompt like `"What is the sum of 2 and 3?"`, the program will identify the
 
 ### AI Usage
 
-Claude (Anthropic) was used throughout this project for:
+AI was used throughout this project for:
 - **Code review**: spotting unused variables, dead code, and inconsistent type annotations.
 - **README**: writing and structuring this document based on project content.

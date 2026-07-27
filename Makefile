@@ -29,8 +29,6 @@ debug:
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type d -name .mypy_cache -exec rm -rf {} +
-	find . -type d -name $(VENV) -exec rm -rf {} +
-	rm -rf $(OUTPUT)
 
 lint:
 	uv run flake8 $(SRC_DIR) --exclude=$(VENV)

@@ -2,10 +2,6 @@ PYTHON := python3
 SRC_DIR := src
 VENV := .venv
 
-FUNCTIONS := data/functions_definition.json
-PROMPTS   := data/function_calling_tests.json
-OUTPUT    := data/output/function_calls.json
-
 .DEFAULT_GOAL := help
 
 .SILENT:
@@ -25,16 +21,10 @@ install:
 	uv sync
 
 run: install
-	uv run $(PYTHON) -m $(SRC_DIR) \
-		--functions_definition $(FUNCTIONS) \
-		--input $(PROMPTS) \
-		--output $(OUTPUT)
+	uv run $(PYTHON) -m $(SRC_DIR) $(ARGS)
 
 debug:
-	uv run $(PYTHON) -m pdb -m $(SRC_DIR) \
-		--functions_definition $(FUNCTIONS) \
-		--input $(PROMPTS) \
-		--output $(OUTPUT)
+	uv run $(PYTHON) -m pdb -m $(SRC_DIR) $(ARGS)
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +

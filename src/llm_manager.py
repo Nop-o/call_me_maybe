@@ -49,8 +49,13 @@ class LlmManager:
         constrained_logits: np.ndarray = self.adapt_logits(
                 self.encoded_function_names)
 
-        return self.get_llm_answer(
+        answer: str = self.get_llm_answer(
             constrained_logits, encoded_prompt, self.longest_function_name)
+
+        if self.find_function_from_name(answer) is None:
+            answer = "null"
+
+        return answer
 
     def get_parameters(
        self, function: FunctionDetails, prompt: str) -> dict[str, Any]:

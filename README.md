@@ -107,15 +107,15 @@ make run
 
 ### All available commands
 
-| Command | Description |
-| :--- | :--- |
+| Command | Description | Metadata |
+| :--- | :--- | :--- |
 | `make install` | Create virtual environment and install dependencies |
-| `make clean` | Remove all temporary files and caches |
-| `make run` | Execute the main script |
-| `make lint` | Run flake8 and mypy with standard checks |
-| `make lint-strict` | Run flake8 and mypy with strict mode |
-| `make debug` | Run the main script in debug mode (pdb) |
-| `make help` | Show a help message |
+| `make clean` | Remove all temporary files and caches | |
+| `make run` | Execute the main script | Args= "" |
+| `make debug` | Run the main script in debug mode (pdb) | Args= "" |
+| `make lint` | Run flake8 and mypy with standard checks | |
+| `make lint-strict` | Run flake8 and mypy with strict mode | |
+| `make help` | Show a help message |  |
 
 ---
 
@@ -127,6 +127,11 @@ Run the following commands to install dependencies and execute the program:
 make install
 make run
 ```
+With metadata:
+```bash
+make run ARGS="--functions_definition data/input/functions_definition.json --input data/input/function_calling_tests.json --output data/output/function_calls.json"
+```
+
 
 For a prompt like `"What is the sum of 2 and 3?"`, the program will identify the matching function and output the corresponding call with the correct arguments.
 

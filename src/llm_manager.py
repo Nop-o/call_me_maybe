@@ -281,4 +281,6 @@ class LlmManager:
         return np.full(logit_count, -float('inf'))
 
     def _get_longest_function_name(self) -> int:
+        if not self.functions:
+            return 0
         return max(len(function.name) for function in self.functions)

@@ -104,6 +104,10 @@ To get started, use the provided `Makefile`:
 make install
 make run
 ```
+or just 
+```bash
+make run
+```
 
 ### All available commands
 
@@ -140,11 +144,8 @@ For a prompt like `"What is the sum of 2 and 3?"`, the program will identify the
 ## Resources
 
 [Blog: Model File Format](https://blog.devops.dev/understanding-hugging-face-model-file-formats-ggml-and-gguf-914b0ebd1131)
-
 [w3schools: Python built-in functions reference](https://www.w3schools.com/python/)
-
 [3Blue1Brown: YouTube video about LLMs](https://www.youtube.com/watch?v=LPZh9BOjkQs)
-
 [Json informations](https://www.json.org/json-fr.html)
 
 ### AI Usage

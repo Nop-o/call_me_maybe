@@ -11,6 +11,6 @@ def get_flags() -> Any:
     parser.add_argument('--input',
                         default='data/input/function_calling_tests.json')
     parser.add_argument('--output',
-                        default='data/output/function_calls.json')
+                        default='data/output/function_calling_results.json')
 
     return parser.parse_args()

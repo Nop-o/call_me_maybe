@@ -31,7 +31,7 @@ clean:
 	find . -type d -name .mypy_cache -exec rm -rf {} +
 
 lint:
-	uv run flake8 $(SRC_DIR) --exclude=$(VENV)
+	uv run flake8 $(SRC_DIR)
 	uv run mypy $(SRC_DIR) \
 			--warn-unused-ignores \
 	        --warn-return-any \
@@ -40,7 +40,7 @@ lint:
 	        --check-untyped-defs
 
 lint-strict:
-	uv run flake8 $(SRC_DIR) --exclude=$(VENV)
+	uv run flake8 $(SRC_DIR)
 	uv run mypy	--strict $(SRC_DIR)
 
 .PHONY: install run debug clean lint lint-strict help

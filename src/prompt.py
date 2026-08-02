@@ -1,9 +1,19 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from llm_sdk.llm_sdk import Small_LLM_Model
+from typing import Any
 
 
 class Prompt(BaseModel):
     prompt: str = Field(min_length=1, max_length=200)
+
+    @model_validator(mode='before')
+    @classmethod
+    def _verify_key_len(cls, data: dict[str, Any]) -> dict[str, Any]:
+        """"Verify if there is more than one key"""
+        if len(data.keys()) > 1:
+            raise ValueError("Key error: too many key entered")
+        
+        return data
 
 
 class PromptEncoder:

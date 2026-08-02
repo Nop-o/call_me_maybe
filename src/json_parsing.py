@@ -1,6 +1,7 @@
 from typing import Any
 from .function import FunctionDetails
 from .prompt import Prompt
+from typing import Any
 import json
 
 
@@ -15,10 +16,22 @@ class JsonParsing:
         self.prompts: list[Prompt] = self._create_prompts()
 
     @staticmethod
+    def _verify_duplicate_keys(data: list[tuple[Any, Any]]) -> Any:
+        """Verify duplicate keys"""
+        registered_keys = {}
+
+        for key, val in data:
+            if key in registered_keys:
+                raise ValueError("Key error: duplicate keys entered")
+            registered_keys[key] = val
+
+        return registered_keys
+
+    @staticmethod
     def _get_json_content(file_name: str) -> Any:
         """Open the json file and retriewe it's content"""
         with open(file_name, "r") as file:
-            file_content = json.load(file)
+            file_content = json.load(file, object_pairs_hook=JsonParsing._verify_duplicate_keys)
         return file_content
 
     def _create_functions(self) -> list[FunctionDetails]:

@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field, model_validator
+from typing import Any
 
 
 class FunctionDetails(BaseModel):
@@ -7,6 +8,15 @@ class FunctionDetails(BaseModel):
     description: str = Field(min_length=1, max_length=200)
     parameters: dict[str, dict[str, str]]
     returns: dict[str, str]
+
+    @model_validator(mode='before')
+    @classmethod
+    def _verify_key_len(cls, data: dict[str, Any]) -> dict[str, Any]:
+        """"Verify if there is more than one key"""
+        if len(data.keys()) > 4:
+            raise ValueError("Key error: too many keys entered")
+        
+        return data
 
     @model_validator(mode='after')
     def _verify_function_name(self) -> "FunctionDetails":
@@ -20,6 +30,9 @@ class FunctionDetails(BaseModel):
         """Verify FunctionDetails.parameters"""
         possible_types: list[str] = [
             "number", "string", "integer", "boolean", "array", "hexa"
+        ]
+        possible_keys: list[str] = [
+            "name", "description", "parameters", "returns"
         ]
 
         for key, value in self.parameters.items():

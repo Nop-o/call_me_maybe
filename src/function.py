@@ -15,7 +15,7 @@ class FunctionDetails(BaseModel):
         """"Verify if there is more than one key"""
         if len(data.keys()) > 4:
             raise ValueError("Key error: too many keys entered")
-        
+
         return data
 
     @model_validator(mode='after')
@@ -30,9 +30,6 @@ class FunctionDetails(BaseModel):
         """Verify FunctionDetails.parameters"""
         possible_types: list[str] = [
             "number", "string", "integer", "boolean", "array", "hexa"
-        ]
-        possible_keys: list[str] = [
-            "name", "description", "parameters", "returns"
         ]
 
         for key, value in self.parameters.items():

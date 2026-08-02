@@ -1,7 +1,6 @@
 from typing import Any
 from .function import FunctionDetails
 from .prompt import Prompt
-from typing import Any
 import json
 
 
@@ -31,7 +30,8 @@ class JsonParsing:
     def _get_json_content(file_name: str) -> Any:
         """Open the json file and retriewe it's content"""
         with open(file_name, "r") as file:
-            file_content = json.load(file, object_pairs_hook=JsonParsing._verify_duplicate_keys)
+            file_content = json.load(
+                file, object_pairs_hook=JsonParsing._verify_duplicate_keys)
         return file_content
 
     def _create_functions(self) -> list[FunctionDetails]:

@@ -12,7 +12,7 @@ class Prompt(BaseModel):
         """"Verify if there is more than one key"""
         if len(data.keys()) > 1:
             raise ValueError("Key error: too many key entered")
-        
+
         return data
 
 
